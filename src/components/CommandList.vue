@@ -1,14 +1,15 @@
 <template>
   <n-card>
     <n-upload
+        v-model:file-list="dummyFiles"
         :default-upload="false"
         accept=".txt"
         :on-change="onFile"
-        abstract
+        :max="1"
     >
       <n-upload-dragger>
         <div style="padding: 32px; text-align: center;">
-          Drop text file with one frame per line
+          Drop a text file with one frame per line
         </div>
       </n-upload-dragger>
     </n-upload>
@@ -24,7 +25,11 @@
       </n-list-item>
     </n-list>
 
-    <decoded-view v-if="selIdx !== -1" :result="decoded" :error="error" />
+    <decoded-view
+        v-if="selIdx !== -1"
+        :result="decoded"
+        :error="error"
+    />
   </n-card>
 </template>
 
@@ -34,20 +39,28 @@ import {
   NUpload,
   NUploadDragger,
   NList,
-  NListItem
+  NListItem,
 } from "naive-ui";
 import { ref } from "vue";
+import type { UploadFileInfo } from "naive-ui";
 import { useDecode } from "../composables/useDecode";
 import DecodedView from "./DecodedView.vue";
 
+const dummyFiles = ref<UploadFileInfo[]>([]);   // 🔹 keeps Naive stateful
 const frames = ref<string[]>([]);
 const selIdx = ref(-1);
+
 const { decoded, error, run } = useDecode();
 
-async function onFile({ file }: any) {
-  const text = await file.file?.text();
-  frames.value = text.split(/\\r?\\n/).filter((l: string) => l.trim());
-  selIdx.value = -1;
+async function onFile(info: { file: UploadFileInfo }) {
+  if (info.file.file) {
+    const text = await info.file.file.text();
+    frames.value = text
+        .split(/[\r\n]+/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+    selIdx.value = -1;
+  }
 }
 
 function select(i: number) {
@@ -58,6 +71,6 @@ function select(i: number) {
 
 <style scoped>
 .selected {
-  background: #f5f5f5;
+  background-color: var(--n-color-primary-6);
 }
 </style>
