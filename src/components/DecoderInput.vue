@@ -1,21 +1,17 @@
 <template>
-  <n-card>
-    <n-input v-model:value="frame" placeholder="Paste 23-byte frame here" />
-    <n-button class="mt-2" type="primary" @click="decode">Decode</n-button>
-
-    <decoded-view :result="decoded" :error="error" />
-  </n-card>
+  <n-input
+      v-model:value="frame"
+      placeholder="Paste a 23-byte frame here"
+      class="mb-2"
+  />
+  <n-button type="primary" @click="run(frame)">Decode</n-button>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { NCard, NInput, NButton } from "naive-ui";
-import { useDecode } from "../composables/useDecode";
-import DecodedView from "./DecodedView.vue";
+import { NInput, NButton } from "naive-ui";
+import { useSharedDecode } from "../composables/useSharedDecode";
 
 const frame = ref("");
-const { decoded, error, run } = useDecode();
-function decode() {
-  run(frame.value);
-}
+const { run } = useSharedDecode();
 </script>

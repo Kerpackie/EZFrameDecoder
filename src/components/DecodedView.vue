@@ -1,12 +1,14 @@
 <template>
-  <n-collapse v-if="result">
-    <n-collapse-item
+  <div v-if="result">
+    <div
         v-for="(group, name) in groups"
         :key="name"
-        :title="String(name)"
-        :name="name"
+        class="mb-4"
     >
-      <n-table :bordered="false" :single-line="true">
+      <h4 class="text-lg font-semibold mb-2">
+        {{ result[name]?._group_description ?? name }}
+      </h4>
+      <n-table :bordered="false" :single-line="true" size="small">
         <thead>
         <tr>
           <th>Field</th>
@@ -15,10 +17,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr
-            v-for="[key, val] in Object.entries(group as Record<string, unknown>)"
-            :key="key"
-        >
+        <tr v-for="[key, val] in Object.entries(group)" :key="key">
           <td>
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
@@ -28,12 +27,12 @@
             </n-tooltip>
           </td>
           <td>{{ typeOf(val) }}</td>
-          <td>{{ toDisplay(valueOf(val)) }}</td>
+          <td>{{ valueOf(val) }}</td>
         </tr>
         </tbody>
       </n-table>
-    </n-collapse-item>
-  </n-collapse>
+    </div>
+  </div>
 
   <n-alert v-else-if="error" type="error" :show-icon="false">
     {{ error }}
@@ -41,55 +40,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
 import {
-  NCollapse,
-  NCollapseItem,
   NTable,
   NTooltip,
   NAlert,
 } from "naive-ui";
+import { computed } from "vue";
 
-/* ---------------- props ---------------- */
-interface ResultObj {
-  [key: string]: unknown;
-}
+const props = defineProps<{ result: any; error: string | null }>();
 
-const props = defineProps<{
-  result: ResultObj | null;
-  error: string | null;
-}>();
-
-/* ----- groups to show (exclude meta keys) ----- */
 const groups = computed(() =>
     Object.fromEntries(
-        Object.entries(props.result ?? {}).filter(
+        Object.entries(props.result || {}).filter(
             ([k]) => !["cmd", "description", "variant_description"].includes(k)
         )
     )
 );
 
-/* ---------------- helpers ---------------- */
-function valueOf(v: unknown): unknown {
-  return typeof v === "object" && v !== null && "value" in v
-      ? (v as any).value
-      : v;
+function valueOf(v: any) {
+  return v?.value ?? v;
 }
-
-function descOf(v: unknown): string {
-  return typeof v === "object" && v !== null && "description" in v
-      ? (v as any).description
-      : "(no description)";
+function descOf(v: any) {
+  return v?.description ?? "(no description)";
 }
-
-function typeOf(v: unknown): string {
-  const val = valueOf(v);
-  return Array.isArray(val) ? "array" : typeof val;
-}
-
-/* stringify value for table cell */
-function toDisplay(v: unknown): string {
-  return typeof v === "object" ? JSON.stringify(v) : String(v);
+function typeOf(v: any) {
+  if (typeof v !== "object" || v === null) return typeof v;
+  if ("value" in v) return typeof v.value;
+  return typeof v;
 }
 </script>
 
@@ -97,5 +74,8 @@ function toDisplay(v: unknown): string {
 .n-table td,
 .n-table th {
   vertical-align: middle;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  font-size: 1rem;
 }
 </style>

@@ -1,17 +1,20 @@
 <template>
   <n-config-provider :theme="darkTheme">
-    <n-layout>
-      <n-layout-header bordered>
-        <h2 class="p-2">Frame Decoder</h2>
+    <n-layout class="root">
+      <n-layout-header bordered class="px-4 py-2">
+        <h2>Frame Decoder</h2>
       </n-layout-header>
 
       <n-layout has-sider>
-        <n-layout-sider width="300">
+        <!-- side list -->
+        <n-layout-sider width="310" bordered>
           <command-list />
         </n-layout-sider>
 
-        <n-layout-content class="p-4">
+        <!-- main column -->
+        <n-layout-content class="p-4 main">
           <decoder-input />
+          <decoded-pane class="result" />
         </n-layout-content>
       </n-layout>
     </n-layout>
@@ -25,14 +28,20 @@ import {
   NLayout,
   NLayoutHeader,
   NLayoutSider,
-  NLayoutContent
+  NLayoutContent,
 } from "naive-ui";
-import DecoderInput from "./components/DecoderInput.vue";
 import CommandList from "./components/CommandList.vue";
+import DecoderInput from "./components/DecoderInput.vue";
+import DecodedPane from "./components/DecodedPane.vue";
 </script>
 
-<style>
-body {
-  margin: 0;
+<style scoped>
+.root, .main {
+  height: 100vh;
+}
+
+.result {
+  height: calc(100% - 60px); /* leave room for the input */
+  overflow: auto;
 }
 </style>

@@ -1,76 +1,61 @@
 <template>
-  <n-card>
-    <n-upload
-        v-model:file-list="dummyFiles"
-        :default-upload="false"
-        accept=".txt"
-        :on-change="onFile"
-        :max="1"
+  <n-upload
+      v-model:file-list="dummy"
+      :default-upload="false"
+      accept=".txt"
+      :max="1"
+      :on-change="onFile"
+  >
+    <n-upload-dragger>
+      Drop or click to load a text file
+    </n-upload-dragger>
+  </n-upload>
+
+  <n-list class="scrollable">
+    <n-list-item
+        v-for="(f,i) in frames"
+        :key="i"
+        :class="{ selected: i===sel }"
+        @click="select(i)"
     >
-      <n-upload-dragger>
-        <div style="padding: 32px; text-align: center;">
-          Drop a text file with one frame per line
-        </div>
-      </n-upload-dragger>
-    </n-upload>
-
-    <n-list bordered>
-      <n-list-item
-          v-for="(f, i) in frames"
-          :key="i"
-          @click="select(i)"
-          :class="{ selected: i === selIdx }"
-      >
-        {{ f }}
-      </n-list-item>
-    </n-list>
-
-    <decoded-view
-        v-if="selIdx !== -1"
-        :result="decoded"
-        :error="error"
-    />
-  </n-card>
+      {{ f }}
+    </n-list-item>
+  </n-list>
 </template>
 
 <script setup lang="ts">
 import {
-  NCard,
-  NUpload,
-  NUploadDragger,
-  NList,
-  NListItem,
+  NUpload, NUploadDragger,
+  NList, NListItem
 } from "naive-ui";
 import { ref } from "vue";
 import type { UploadFileInfo } from "naive-ui";
-import { useDecode } from "../composables/useDecode";
-import DecodedView from "./DecodedView.vue";
+import { useSharedDecode } from "../composables/useSharedDecode";
 
-const dummyFiles = ref<UploadFileInfo[]>([]);   // 🔹 keeps Naive stateful
+const dummy = ref<UploadFileInfo[]>([]);
 const frames = ref<string[]>([]);
-const selIdx = ref(-1);
-
-const { decoded, error, run } = useDecode();
+const sel = ref(-1);
+const { run } = useSharedDecode();
 
 async function onFile(info: { file: UploadFileInfo }) {
-  if (info.file.file) {
-    const text = await info.file.file.text();
-    frames.value = text
-        .split(/[\r\n]+/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-    selIdx.value = -1;
-  }
+  const text = await info.file.file?.text();
+  frames.value = text
+      ?.split(/[\r\n]+/)
+      .map(l => l.trim())
+      .filter(Boolean) || [];
+  sel.value = -1;
 }
 
 function select(i: number) {
-  selIdx.value = i;
+  sel.value = i;
   run(frames.value[i]);
 }
 </script>
 
 <style scoped>
-.selected {
-  background-color: var(--n-color-primary-6);
+.scrollable {
+  height: calc(100vh - 200px); /* adjust header size if needed */
+  overflow-y: auto;
 }
+.selected { background: var(--n-item-color-active); }
 </style>
