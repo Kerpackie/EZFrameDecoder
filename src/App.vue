@@ -1,5 +1,6 @@
 <template>
   <n-config-provider :theme="darkTheme">
+    <n-message-provider>
     <!-- root fills viewport -->
     <n-layout class="root">
 
@@ -22,6 +23,7 @@
 
       </n-layout>
     </n-layout>
+    </n-message-provider>
   </n-config-provider>
 </template>
 
