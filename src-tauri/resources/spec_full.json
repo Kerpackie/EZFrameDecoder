@@ -9,15 +9,20 @@
       "description": "Temperature calibration command",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Device address on RS\u2011485 bus"
-            },
+              "description": "Device address on RS-485 bus"
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "Polarity",
               "len": 1,
@@ -51,14 +56,14 @@
               "len": 1,
               "base": 10,
               "type": "bool",
-              "description": "Set\u2011point start flag"
+              "description": "Set-point start flag"
             },
             {
               "name": "PowerUpDelay",
               "len": 4,
               "base": 16,
               "type": "u16",
-              "description": "Power\u2011up delay (hex)"
+              "description": "Power-up delay (hex)"
             }
           ]
         }
@@ -66,7 +71,7 @@
     },
     {
       "letter": "C",
-      "description": "Configuration / control commands selected by 16\u2011bit opcode",
+      "description": "Configuration / control commands selected by 16-bit opcode",
       "items": [
         {
           "name": "header",
@@ -76,12 +81,12 @@
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Device address on RS\u2011485 bus"
+              "description": "Device address on RS-485 bus"
             },
             {
               "name": "Opcode",
               "len": 4,
-              "base": 10,
+              "base": 16,
               "type": "u16",
               "description": "Operation selector"
             }
@@ -91,7 +96,7 @@
           "switch": "Opcode",
           "cases": {
             "0x0903": {
-              "description": "Set program\u2011ID on board",
+              "description": "Set program-ID on board",
               "groups": [
                 {
                   "name": "payload",
@@ -108,7 +113,7 @@
               ]
             },
             "0x1700": {
-              "description": "C17 \u2014 special device command",
+              "description": "C17 — special device command",
               "groups": [
                 {
                   "name": "payload",
@@ -125,7 +130,7 @@
               ]
             },
             "0x2100": {
-              "description": "C21 \u2014 special device command",
+              "description": "C21 — special device command",
               "groups": [
                 {
                   "name": "payload",
@@ -177,7 +182,7 @@
             }
           },
           "default": {
-            "description": "Unrecognised C\u2011opcode",
+            "description": "Unrecognised C-opcode",
             "groups": [
               {
                 "name": "payload",
@@ -201,7 +206,7 @@
       "description": "Current monitoring command",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -209,13 +214,18 @@
               "base": 16,
               "type": "u8",
               "description": "Device address"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "PowerSupplyId",
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Power\u2011supply index"
+              "description": "Power-supply index"
             },
             {
               "name": "CurrentMonitorCalibration",
@@ -229,7 +239,7 @@
               "len": 3,
               "base": 16,
               "type": "u16",
-              "description": "Current monitor set\u2011point"
+              "description": "Current monitor set-point"
             },
             {
               "name": "CurrentMonitorOffset",
@@ -243,7 +253,7 @@
               "len": 1,
               "base": 10,
               "type": "bool",
-              "description": "Offset polarity (0 = \u2212, 1 = +)"
+              "description": "Offset polarity (0 = −, 1 = +)"
             },
             {
               "name": "Reserved",
@@ -258,10 +268,10 @@
     },
     {
       "letter": "E",
-      "description": "Execution\u2011settings command",
+      "description": "Execution-settings command",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -269,7 +279,12 @@
               "base": 16,
               "type": "u8",
               "description": "Device address"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "StepDelay",
               "len": 4,
@@ -282,28 +297,28 @@
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Enable single\u2011step mode (00 / 01)"
+              "description": "Enable single-step mode (00 / 01)"
             },
             {
               "name": "AutoRetryCount",
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Auto\u2011retry attempts"
+              "description": "Auto-retry attempts"
             },
             {
               "name": "EnableAutoReset",
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Auto\u2011reset flag (00 / 01)"
+              "description": "Auto-reset flag (00 / 01)"
             },
             {
               "name": "EnableStopAtMaxTemp",
               "len": 2,
               "base": 16,
               "type": "u8",
-              "description": "Stop on max\u2011temperature flag"
+              "description": "Stop on max-temperature flag"
             },
             {
               "name": "EnableSequencing",
@@ -339,10 +354,10 @@
     },
     {
       "letter": "S",
-      "description": "Sine\u2011wave generator settings",
+      "description": "Sine-wave generator settings",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -350,13 +365,18 @@
               "base": 16,
               "type": "u8",
               "description": "Driver index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "SineWaveId",
               "len": 2,
               "base": 10,
               "type": "u8",
-              "description": "Sine\u2011wave channel"
+              "description": "Sine-wave channel"
             },
             {
               "name": "SineWaveRequired",
@@ -413,10 +433,10 @@
     },
     {
       "letter": "T",
-      "description": "Real\u2011time clock registers",
+      "description": "Real-time clock registers",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -424,7 +444,12 @@
               "base": 16,
               "type": "u8",
               "description": "Device index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "AlarmRegister3",
               "len": 2,
@@ -490,7 +515,7 @@
       "description": "Voltage step program",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -498,7 +523,12 @@
               "base": 16,
               "type": "u8",
               "description": "Index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "PowerSupplyId",
               "len": 2,
@@ -547,10 +577,10 @@
     },
     {
       "letter": "M",
-      "description": "Step\u2011control configuration",
+      "description": "Step-control configuration",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -558,7 +588,12 @@
               "base": 16,
               "type": "u8",
               "description": "Driver index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "PowerSupply",
               "len": 2,
@@ -603,7 +638,7 @@
       "description": "PTC parametric test code",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -611,7 +646,12 @@
               "base": 16,
               "type": "u8",
               "description": "Index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "Padding",
               "len": 5,
@@ -656,7 +696,7 @@
       "description": "Voltage monitor",
       "items": [
         {
-          "name": "fields",
+          "name": "header",
           "fields": [
             {
               "name": "RSAddress",
@@ -664,7 +704,12 @@
               "base": 16,
               "type": "u8",
               "description": "Index"
-            },
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "fields": [
             {
               "name": "PowerSupply",
               "len": 2,
@@ -719,7 +764,7 @@
               "len": 1,
               "base": 10,
               "type": "bool",
-              "description": "High\u2011V mode"
+              "description": "High-V mode"
             }
           ]
         }

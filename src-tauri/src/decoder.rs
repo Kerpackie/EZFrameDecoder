@@ -105,7 +105,11 @@ pub enum DecodeError {
     #[error("unknown switch case '{0}' for field '{1}'")]
     UnknownCase(String, String),
     #[error("input too short for field '{field}': need {needed}, got {got}")]
-    InputTooShort { field: String, needed: usize, got: usize },
+    InputTooShort {
+        field: String,
+        needed: usize,
+        got: usize,
+    },
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
 }
@@ -146,8 +150,15 @@ fn decode_group(
         ctx.insert(f.name.clone(), raw_val.clone());
 
         let entry = match &f.description {
-            Some(desc) => json!({ "value": raw_val, "description": desc }),
-            None => raw_val,
+            Some(desc) => json!({
+                "hex": seg,        // raw slice exactly as seen in the frame
+                "value": raw_val,
+                "description": desc
+            }),
+            None => json!({
+                "hex": seg,
+                "value": raw_val
+            }),
         };
         map.insert(f.name.clone(), entry);
     }
@@ -184,7 +195,8 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
 
     let mut out = json!({
         "cmd": letter.to_string(),
-        "description": cmd.description.clone().unwrap_or_default()
+        "description": cmd.description.clone().unwrap_or_default(),
+        "raw": frame
     });
     let mut ctx = Map::new(); // parsed fields cache
 
@@ -222,7 +234,6 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
     /* any leftover cursor chars = padding → ignored */
     Ok(out)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -300,7 +311,10 @@ mod tests {
         assert_eq!(result["cmd"], "A");
         assert_eq!(result["description"], "Test command");
         assert_eq!(result["Header"]["Opcode"]["value"], 2048);
-        assert_eq!(result["Header"]["Opcode"]["description"], "Operation selector");
+        assert_eq!(
+            result["Header"]["Opcode"]["description"],
+            "Operation selector"
+        );
         assert_eq!(result["Header"]["Flag"], true);
     }
 
