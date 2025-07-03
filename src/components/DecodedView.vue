@@ -3,13 +3,15 @@
   <div v-if="result" class="decoded-root">
     <!-- Header section -->
     <div class="command-header">
-      <h3 class="cmd-letter">{{ result.cmd }}</h3>
+      <h3 class="cmd-letter">Command Type: {{ result.cmd }}</h3>
 
       <p v-if="result.description" class="cmd-desc">
+        Description:
         {{ result.description }}
       </p>
 
       <p v-if="result.variant_description" class="cmd-variant">
+        Sub-Variant:
         {{ result.variant_description }}
       </p>
 
@@ -25,7 +27,7 @@
         :key="name"
         class="group-section"
     >
-      <h4 class="group-title">{{ name }}</h4>
+      <h4 class="text-lg font-semibold mb-2">{{ toTitleCase(String(name)) }}</h4>
 
       <n-table :bordered="false" :single-line="true" size="small">
         <thead>
@@ -96,6 +98,10 @@ const groups = computed(() =>
 /* ---------- helper functions ---------- */
 function hexOf(v: any): string {
   return v?.hex ?? "";
+}
+
+function toTitleCase(text: string): string {
+  return text.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 }
 
 function valueOf(v: any): unknown {

@@ -6,7 +6,7 @@
 
       <!-- fixed header (48 px) -->
       <n-layout-header class="header" bordered>
-        <h2>Frame Decoder</h2>
+        <h2>EZ Frame Decoder</h2>
       </n-layout-header>
 
       <!-- flex row below header (fills the rest) -->
@@ -65,9 +65,12 @@ import DecodedPane from "./components/DecodedPane.vue";
 }
 
 .main {
-  height: 100%;
+  height: calc(100% - 1rem);
   display: flex;
   flex-direction: column;
+  margin-left: 1rem;
+  margin-right: 1rem;
+  margin-top: 1rem;
 }
 
 .result {

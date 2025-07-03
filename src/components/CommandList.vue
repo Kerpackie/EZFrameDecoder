@@ -9,7 +9,7 @@
       :on-change="onFile"
   >
     <n-upload-dragger>
-      Drop or click to load a text file
+      Click to load a .txt, .log or .csv file
     </n-upload-dragger>
   </n-upload>
 
@@ -74,6 +74,7 @@ function select(i: number) { sel.value = i; run(frames.value[i]); }
 .frame-list {
   flex: 1 1 auto;
   overflow-y: auto;
+  padding-left: 1rem;
 }
 .selected {
   background-color: var(--n-item-color-active);
