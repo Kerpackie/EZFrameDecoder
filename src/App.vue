@@ -1,21 +1,25 @@
 <template>
   <n-config-provider :theme="darkTheme">
+    <!-- root fills viewport -->
     <n-layout class="root">
-      <n-layout-header bordered class="px-4 py-2">
+
+      <!-- fixed header (48 px) -->
+      <n-layout-header class="header" bordered>
         <h2>Frame Decoder</h2>
       </n-layout-header>
 
-      <n-layout has-sider>
-        <!-- side list -->
-        <n-layout-sider width="310" bordered>
-          <command-list />
+      <!-- flex row below header (fills the rest) -->
+      <n-layout class="body-row" has-sider>
+
+        <n-layout-sider width="310" bordered class="side">
+          <command-list/>
         </n-layout-sider>
 
-        <!-- main column -->
-        <n-layout-content class="p-4 main">
-          <decoder-input />
-          <decoded-pane class="result" />
+        <n-layout-content class="main">
+          <decoder-input/>
+          <decoded-pane class="result scroll-hide"/>
         </n-layout-content>
+
       </n-layout>
     </n-layout>
   </n-config-provider>
@@ -24,11 +28,11 @@
 <script setup lang="ts">
 import {
   darkTheme,
-  NConfigProvider,
   NLayout,
   NLayoutHeader,
   NLayoutSider,
   NLayoutContent,
+  NConfigProvider,
 } from "naive-ui";
 import CommandList from "./components/CommandList.vue";
 import DecoderInput from "./components/DecoderInput.vue";
@@ -36,12 +40,36 @@ import DecodedPane from "./components/DecodedPane.vue";
 </script>
 
 <style scoped>
-.root, .main {
+.root {
   height: 100vh;
 }
 
+.header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.body-row {
+  height: calc(100vh - 48px);
+}
+
+/* subtract header */
+.side {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .result {
-  height: calc(100% - 60px); /* leave room for the input */
+  flex: 1 1 auto;
   overflow: auto;
 }
 </style>

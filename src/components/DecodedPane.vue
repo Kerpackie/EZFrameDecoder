@@ -1,5 +1,5 @@
 <template>
-  <decoded-view :result="decoded" :error="error" />
+  <decoded-view class="scroll-hide" :result="decoded" :error="error" />
 </template>
 
 <script setup lang="ts">

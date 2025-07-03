@@ -50,18 +50,35 @@ static SPEC: Lazy<RwLock<SpecFile>> =
 
 /* ───────────── Tauri commands ───────────── */
 
+fn clean_frame(line: &str) -> &str {
+    line.split_whitespace().next().unwrap_or("")
+}
+
 #[tauri::command]
 fn decode_frame(frame: String) -> Result<serde_json::Value, String> {
+    let cleaned = clean_frame(&frame);
+    if !cleaned.starts_with('<') {
+        return Err("Line does not start with '<'".into());
+    }
     let spec = SPEC.read().unwrap();
-    decode(&frame, &*spec).map_err(|e| e.to_string())
+    decode(cleaned, &*spec).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn batch_decode(text: String) -> Result<Vec<serde_json::Value>, String> {
     let spec = SPEC.read().unwrap();
     text.lines()
-        .filter(|l| !l.trim().is_empty())
-        .map(|l| decode(l.trim(), &*spec).map_err(|e| e.to_string()))
+        .filter_map(|raw| {
+            let cleaned = clean_frame(raw.trim());
+            if cleaned.starts_with('<') && !cleaned.is_empty() {
+                Some(
+                    decode(cleaned, &*spec)
+                        .map_err(|e| e.to_string())
+                )
+            } else {
+                None // skip non-frame lines
+            }
+        })
         .collect()
 }
 
