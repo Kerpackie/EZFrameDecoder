@@ -81,7 +81,7 @@
             {
               "name": "Opcode",
               "len": 4,
-              "base": 10,
+              "base": 16,
               "type": "u16",
               "description": "Operation selector"
             }
