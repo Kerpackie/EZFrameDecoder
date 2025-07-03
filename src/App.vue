@@ -1,44 +1,45 @@
 <template>
-  <n-config-provider :theme="darkTheme">
+  <n-config-provider :theme-overrides="abrelTheme">
     <n-message-provider>
-    <!-- root fills viewport -->
-    <n-layout class="root">
+      <!-- root fills viewport -->
+      <n-layout class="root">
 
-      <!-- fixed header (48 px) -->
-      <n-layout-header class="header" bordered>
-        <h2>EZ Frame Decoder</h2>
-      </n-layout-header>
+        <!-- fixed header (48 px) -->
+        <n-layout-header class="header" bordered>
+          <h2>EZ Frame Decoder</h2>
+        </n-layout-header>
 
-      <!-- flex row below header (fills the rest) -->
-      <n-layout class="body-row" has-sider>
+        <!-- flex row below header (fills the rest) -->
+        <n-layout class="body-row" has-sider>
 
-        <n-layout-sider width="310" bordered class="side">
-          <command-list/>
-        </n-layout-sider>
+          <n-layout-sider width="310" bordered class="side">
+            <command-list/>
+          </n-layout-sider>
 
-        <n-layout-content class="main">
-          <decoder-input/>
-          <decoded-pane class="result scroll-hide"/>
-        </n-layout-content>
+          <n-layout-content class="main">
+            <decoder-input/>
+            <decoded-pane class="result scroll-hide"/>
+          </n-layout-content>
 
+        </n-layout>
       </n-layout>
-    </n-layout>
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import {
-  darkTheme,
   NLayout,
   NLayoutHeader,
   NLayoutSider,
   NLayoutContent,
   NConfigProvider,
 } from "naive-ui";
+
 import CommandList from "./components/CommandList.vue";
 import DecoderInput from "./components/DecoderInput.vue";
 import DecodedPane from "./components/DecodedPane.vue";
+import {abrelTheme} from "./theme/abrelTheme";
 </script>
 
 <style scoped>
@@ -78,3 +79,4 @@ import DecodedPane from "./components/DecodedPane.vue";
   overflow: auto;
 }
 </style>
+
