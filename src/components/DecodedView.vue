@@ -38,8 +38,9 @@
         </thead>
 
         <tbody>
-        <tr v-for="[key, val] in Object.entries(group as Record<string, unknown>)" :key="key">
-          <!-- field name with tooltip -->
+        <tr v-for="(val, key) in group as Record<string, any>" :key="key">
+
+        <!-- field name with tooltip -->
           <td>
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
