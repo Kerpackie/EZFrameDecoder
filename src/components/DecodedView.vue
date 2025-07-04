@@ -30,28 +30,23 @@
     </n-card>
 
     <!-- groups -->
-    <div
-        v-for="(group, name) in groups"
-        :key="name"
-        class="group-section"
-    >
+    <!-- groups loop (unchanged) -->
+    <div v-for="(group, name) in groups" :key="name" class="group-section">
       <n-h4 class="group-title">{{ toTitleCase(String(name)) }}</n-h4>
 
-      <n-table :bordered="false" :single-line="true" size="small">
+      <!-- uniform-width table -->
+      <n-table :bordered="false" :single-line="true" size="small" class="uniform-table">
         <thead>
         <tr>
-          <th>Field</th>
-          <th>Hex</th>
-          <th>Type</th>
-          <th>Value</th>
+          <th class="col-field">Field</th>
+          <th class="col-hex">Hex</th>
+          <th class="col-type">Type</th>
+          <th class="col-value">Value</th>
         </tr>
         </thead>
+
         <tbody>
-        <tr
-            v-for="(val, key) in group as Record<string, any>"
-            :key="key"
-        >
-          <!-- field name -->
+        <tr v-for="(val, key) in group as Record<string, any>" :key="key">
           <td>
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
@@ -62,9 +57,7 @@
           </td>
 
           <!-- raw hex -->
-          <td>
-            <n-tag size="small" bordered>{{ hexOf(val) }}</n-tag>
-          </td>
+          <td><n-tag size="small" bordered>{{ hexOf(val) }}</n-tag></td>
 
           <!-- type / value -->
           <td>{{ typeOf(val) }}</td>
@@ -73,6 +66,7 @@
         </tbody>
       </n-table>
     </div>
+
   </div>
 
   <!-- error -->
@@ -144,4 +138,39 @@ function toDisplay(v: unknown): string {
 .meta-section {
   margin-bottom: 0.5rem;
 }
+
+/* fixed layout ensures widths are respected */
+.uniform-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* explicit column widths */
+.col-field { width: 50%; }
+.col-hex   { width: 15%; }
+.col-type  { width: 20%; }
+.col-value { width: 15%; }
+
+/* keep long text from breaking the layout */
+.uniform-table td,
+.uniform-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .col-field { width: 35%; }
+  .col-hex   { width: 35%; }
+  .col-type  { width: 15%; }
+  .col-value { width: 15%; }
+}
+
+@media (max-width: 800px) {
+  .col-field { width: 35%; }
+  .col-hex   { width: 35%; }
+  .col-type  { width: 15%; }
+  .col-value { width: 15%; }
+}
+
 </style>
