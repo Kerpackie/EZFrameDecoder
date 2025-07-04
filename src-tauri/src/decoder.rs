@@ -1,4 +1,4 @@
-//! Pure Rust decoder – no Tauri, no file-I/O.
+//! Pure Rust decoder
 //!
 //! * `SpecFile` – the JSON-driven command layout
 //! * `decode(frame, &spec)` – returns a `serde_json::Value` tree
@@ -33,7 +33,7 @@ pub struct SpecFile {
 }
 #[derive(Debug, Deserialize)]
 pub struct Framing {
-    pub start: String, // always "<" in your protocol
+    pub start: String,
 }
 
 #[derive(Debug, Deserialize)]
