@@ -6,7 +6,12 @@
 
         <!-- fixed header (48 px) -->
         <n-layout-header class="header" bordered>
-          <h2>EZ Frame Decoder</h2>
+          <h2 class="flex-1">EZ Frame Decoder</h2>
+            <div style="margin-left:auto;">
+            <n-button type="info" quaternary size="small" @click="toggleAbout">
+              {{ showAbout ? "Decoder" : "About" }}
+            </n-button>
+            </div>
         </n-layout-header>
 
         <!-- flex row below header (fills the rest) -->
@@ -17,8 +22,10 @@
           </n-layout-sider>
 
           <n-layout-content class="main">
-            <decoder-input/>
-            <decoded-pane class="result scroll-hide"/>
+            <decoder-input v-if="!showAbout" />
+            <decoded-pane  v-if="!showAbout" class="result scroll-hide" />
+
+            <about-pane    v-else class="result scroll-hide" />
           </n-layout-content>
 
         </n-layout>
@@ -35,11 +42,16 @@ import {
   NLayoutContent,
   NConfigProvider,
 } from "naive-ui";
-
+import { ref } from "vue";
 import CommandList from "./components/CommandList.vue";
 import DecoderInput from "./components/DecoderInput.vue";
 import DecodedPane from "./components/DecodedPane.vue";
 import {abrelTheme} from "./theme/abrelTheme";
+
+import AboutPane from "./components/AboutPane.vue";
+
+const showAbout = ref(false);
+function toggleAbout() { showAbout.value = !showAbout.value; }
 </script>
 
 <style scoped>
