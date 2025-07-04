@@ -89,6 +89,87 @@ fn reload_spec() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn append_command(new_cmd: serde_json::Value) -> Result<(), String> {
+    use serde_json::Value;
+
+    // Load override file
+    let path = ensure_user_spec().map_err(|e| e.to_string())?;
+    let mut spec: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+
+    let commands = spec
+        .get_mut("commands")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("Malformed spec: 'commands' not array")?;
+
+    /* -------------------------------------------------- */
+    /* Case 1 – new top-level command                     */
+    /* -------------------------------------------------- */
+    if new_cmd.get("items").is_some() {
+        let letter = new_cmd
+            .get("letter")
+            .and_then(|v| v.as_str())
+            .ok_or("missing letter")?;
+
+        if commands
+            .iter()
+            .any(|c| c.get("letter").and_then(|v| v.as_str()) == Some(letter))
+        {
+            return Err(format!(
+                "Command with letter '{}' already exists. Use sub-command mode.",
+                letter
+            ));
+        }
+
+        commands.push(new_cmd);
+    }
+    /* -------------------------------------------------- */
+    /* Case 2 – merge into existing switch                */
+    /* new_cmd must have { letter, switch_key, switch_case, case } */
+    /* -------------------------------------------------- */
+    else {
+        let letter       = new_cmd["letter"].as_str().ok_or("missing letter")?;
+        let switch_key   = new_cmd["switch_key"]
+            .as_str()
+            .unwrap_or("Opcode");
+        let switch_case  = new_cmd["switch_case"]
+            .as_str()
+            .ok_or("missing switch_case")?;
+        let case_obj     = new_cmd["case"].clone();
+
+        let cmd = commands
+            .iter_mut()
+            .find(|c| c["letter"] == letter)
+            .ok_or("Base command not found")?;
+
+        let switch_item = cmd["items"]
+            .as_array_mut()
+            .ok_or("items not array")?
+            .iter_mut()
+            .find(|it| it.get("switch").and_then(|v| v.as_str()) == Some(switch_key))
+            .ok_or("No switch with that key")?;
+
+        let cases = switch_item["cases"]
+            .as_object_mut()
+            .ok_or("cases not object")?;
+
+        if cases.contains_key(switch_case) {
+            return Err("That switch_case already exists".into());
+        }
+
+        cases.insert(switch_case.to_string(), case_obj);
+    }
+
+    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
+        .map_err(|e| e.to_string())?;
+
+    // Hot-reload
+    reload_spec()?;
+    Ok(())
+}
+
 /* ─────────────── main entry ─────────────── */
 
 fn main() {
@@ -97,7 +178,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             decode_frame,
             batch_decode,
-            reload_spec
+            reload_spec,
+            append_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri app");
