@@ -1,70 +1,75 @@
 <template>
-  <!-- When result exists render header + tables -->
+  <!-- decoded result -->
   <div v-if="result" class="decoded-root">
-    <!-- Header section -->
-    <div class="command-header">
-      <h3 class="cmd-letter">Command Type: {{ result.cmd }}</h3>
+    <!-- meta card -->
+    <n-card embedded class="meta-card" size="small">
+      <template #header>
+        <span class="font-semibold">Command Type: {{ result.cmd }}</span>
+      </template>
 
-      <p v-if="result.description" class="cmd-desc">
-        Description:
-        {{ result.description }}
-      </p>
+      <div class="meta-details">
+        <div class="meta-section" v-if="result.description">
+          <n-text strong> Description: <br></n-text>
+          <n-text depth="3">
+            {{ result.description }}
+          </n-text>
+        </div>
 
-      <p v-if="result.variant_description" class="cmd-variant">
-        Sub-Variant:
-        {{ result.variant_description }}
-      </p>
+        <div class="meta-section" v-if="result.variant_description">
+          <n-text depth="3">
+            <n-text strong> Sub-Variant: <br> </n-text>
+            {{ result.variant_description }}
+          </n-text>
+        </div>
+      </div>
 
-      <p v-if="result.raw" class="cmd-raw">
-        <span class="label">Decoded:</span>
-        <code>{{ result.raw }}</code>
-      </p>
-    </div>
+      <div class="mt-2">
+        <n-text strong>Decoded: </n-text>
+        <n-tag type="primary" size="small" bordered>{{ result.raw }}</n-tag>
+      </div>
+    </n-card>
 
-    <!-- One section per group -->
-    <div
-        v-for="(group, name) in groups"
-        :key="name"
-        class="group-section"
-    >
-      <h4 class="text-lg font-semibold mb-2">{{ toTitleCase(String(name)) }}</h4>
+    <!-- groups -->
+    <!-- groups loop (unchanged) -->
+    <div v-for="(group, name) in groups" :key="name" class="group-section">
+      <n-h4 class="group-title">{{ toTitleCase(String(name)) }}</n-h4>
 
-      <n-table :bordered="false" :single-line="true" size="small">
+      <!-- uniform-width table -->
+      <n-table :bordered="false" :single-line="true" size="small" class="uniform-table">
         <thead>
         <tr>
-          <th>Field</th>
-          <th>Hex</th>
-          <th>Type</th>
-          <th>Value</th>
+          <th class="col-field">Field</th>
+          <th class="col-hex">Hex</th>
+          <th class="col-type">Type</th>
+          <th class="col-value">Value</th>
         </tr>
         </thead>
 
         <tbody>
         <tr v-for="(val, key) in group as Record<string, any>" :key="key">
-
-        <!-- field name with tooltip -->
           <td>
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
-                <span class="font-mono text-sm">{{ key }}</span>
+                <n-text code>{{ key }}</n-text>
               </template>
               {{ descOf(val) }}
             </n-tooltip>
           </td>
 
-          <!-- raw hex slice -->
-          <td><code>{{ hexOf(val) }}</code></td>
+          <!-- raw hex -->
+          <td><n-tag size="small" bordered>{{ hexOf(val) }}</n-tag></td>
 
-          <!-- type and value -->
+          <!-- type / value -->
           <td>{{ typeOf(val) }}</td>
           <td>{{ toDisplay(valueOf(val)) }}</td>
         </tr>
         </tbody>
       </n-table>
     </div>
+
   </div>
 
-  <!-- Error state -->
+  <!-- error -->
   <n-alert v-else-if="error" type="error" :show-icon="false">
     {{ error }}
   </n-alert>
@@ -72,109 +77,100 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { NTable, NTooltip, NAlert } from "naive-ui";
+import {
+  NCard,
+  NTable,
+  NTooltip,
+  NAlert,
+  NTag,
+  NText,
+  NH4
+} from "naive-ui";
 
-/* -------- props from parent ---------- */
 const props = defineProps<{
   result: Record<string, unknown> | null;
-  error : string | null;
+  error: string | null;
 }>();
 
-/* -------- groups to render ---------- */
+/* groups to render (skip meta keys) */
 const groups = computed(() =>
     Object.fromEntries(
-        Object.entries(props.result ?? {}).filter(
-            ([k]) =>
-                ![
-                  "cmd",
-                  "description",
-                  "variant_description",
-                  "raw"
-                ].includes(k)
-        )
+        Object.entries(props.result ?? {}).filter(([k]) =>
+            !["cmd", "description", "variant_description", "raw"].includes(k))
     )
 );
 
-/* ---------- helper functions ---------- */
+/* helpers */
 function hexOf(v: any): string {
   return v?.hex ?? "";
 }
-
 function toTitleCase(text: string): string {
-  return text.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+  return text.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
 }
-
 function valueOf(v: any): unknown {
   return v?.value ?? v;
 }
-
 function descOf(v: any): string {
   return v?.description ?? "(no description)";
 }
-
 function typeOf(v: any): string {
   const raw = valueOf(v);
   return Array.isArray(raw) ? "array" : typeof raw;
 }
-
 function toDisplay(v: unknown): string {
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 </script>
 
 <style scoped>
-/* header */
-.command-header {
+.meta-card {
   margin-bottom: 1.5rem;
 }
-.cmd-letter {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin: 0;
-}
-.cmd-desc {
-  margin: 0.15rem 0 0.1rem;
-  font-size: 0.95rem;
-  color: #bbb;
-}
-.cmd-variant {
-  margin: 0 0 0.4rem;
-  font-size: 0.9rem;
-  color: #aaa;
-}
-.cmd-raw {
-  font-size: 0.85rem;
-  color: #888;
-}
-.cmd-raw code {
-  background: #222;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-.label {
-  font-weight: 500;
-  margin-right: 6px;
-}
 
-/* tables */
 .group-section {
-  margin-bottom: 1.8rem;
-}
-.group-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-.n-table td,
-.n-table th {
-  vertical-align: middle;
+  margin-bottom: 2rem;
 }
 
-/* optional: nicer code background in Hex column */
-code {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0 4px;
-  border-radius: 3px;
+.group-title {
+  margin-bottom: 0.5rem;
 }
+
+.meta-section {
+  margin-bottom: 0.5rem;
+}
+
+/* fixed layout ensures widths are respected */
+.uniform-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* explicit column widths */
+.col-field { width: 50%; }
+.col-hex   { width: 15%; }
+.col-type  { width: 20%; }
+.col-value { width: 15%; }
+
+/* keep long text from breaking the layout */
+.uniform-table td,
+.uniform-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .col-field { width: 35%; }
+  .col-hex   { width: 35%; }
+  .col-type  { width: 15%; }
+  .col-value { width: 15%; }
+}
+
+@media (max-width: 800px) {
+  .col-field { width: 35%; }
+  .col-hex   { width: 35%; }
+  .col-type  { width: 15%; }
+  .col-value { width: 15%; }
+}
+
 </style>

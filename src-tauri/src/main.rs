@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-mod decoder; // <-- your decoder.rs
+mod decoder;
 
 use decoder::{decode, SpecFile};
 use once_cell::sync::Lazy;
