@@ -1,31 +1,38 @@
 <template>
-  <n-config-provider :theme-overrides="abrelTheme">
+  <n-config-provider :theme-overrides="themeOverrides">
     <n-message-provider>
-      <!-- root fills viewport -->
       <n-layout class="root">
 
-        <!-- fixed header (48 px) -->
+        <!-- Header -->
         <n-layout-header class="header" bordered>
-          <h2 class="flex-1">EZ Frame Decoder</h2>
-            <div style="margin-left:auto;">
-            <n-button type="info" quaternary size="small" @click="toggleAbout">
-              {{ showAbout ? "Decoder" : "About" }}
-            </n-button>
-            </div>
+          <h2 class="logo" @click="router.push('/')">EZ Frame Decoder</h2>
         </n-layout-header>
 
-        <!-- flex row below header (fills the rest) -->
-        <n-layout class="body-row" has-sider>
+        <!-- Body -->
+        <n-layout has-sider class="body-row">
 
-          <n-layout-sider width="310" bordered class="side">
-            <command-list/>
+          <!-- Sidebar -->
+          <n-layout-sider
+              :width="220"
+              :collapsed-width="60"
+              :collapsed="collapsed"
+              collapse-mode="width"
+              bordered
+              class="nav-sider"
+              @collapse="collapsed = true"
+              @expand="collapsed = isMedium"
+          >
+            <n-menu
+                :collapsed="collapsed"
+                :options="menuOptions"
+                :value="active"
+                @update:value="nav"
+            />
           </n-layout-sider>
 
+          <!-- Main Content -->
           <n-layout-content class="main">
-            <decoder-input v-if="!showAbout" />
-            <decoded-pane  v-if="!showAbout" class="result scroll-hide" />
-
-            <about-pane    v-else class="result scroll-hide" />
+            <router-view />
           </n-layout-content>
 
         </n-layout>
@@ -36,59 +43,60 @@
 
 <script setup lang="ts">
 import {
+  NConfigProvider,
+  NMessageProvider,
   NLayout,
   NLayoutHeader,
-  NLayoutSider,
   NLayoutContent,
-  NConfigProvider,
+  NLayoutSider,
+  NMenu,
+  NIcon
 } from "naive-ui";
-import { ref } from "vue";
-import CommandList from "./components/CommandList.vue";
-import DecoderInput from "./components/DecoderInput.vue";
-import DecodedPane from "./components/DecodedPane.vue";
-import {abrelTheme} from "./theme/abrelTheme";
+import { h, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { themeOverrides } from "./theme";
+import { useBreakpoint } from "./composables/useBreakpoint";
 
-import AboutPane from "./components/AboutPane.vue";
+import {
+  DocumentTextOutline,
+  AddCircleOutline,
+  InformationCircleOutline
+} from "@vicons/ionicons5";
 
-const showAbout = ref(false);
-function toggleAbout() { showAbout.value = !showAbout.value; }
+const icon = (comp: any) => () => h(NIcon, null, { default: () => h(comp) });
+
+const router = useRouter();
+const route = useRoute();
+
+const menuOptions = [
+  { label: "Decode", key: "/", icon: icon(DocumentTextOutline) },
+  { label: "Add Command", key: "/add-command", icon: icon(AddCircleOutline) },
+  { label: "About", key: "/about", icon: icon(InformationCircleOutline) }
+];
+
+const active = ref(route.path);
+watch(() => route.path, p => (active.value = p));
+
+function nav(key: string) {
+  router.push(key);
+}
+
+const isMedium = useBreakpoint("(max-width: 1200px)");
+const collapsed = ref(isMedium.value);
+watch(isMedium, val => (collapsed.value = val));
 </script>
 
 <style scoped>
-.root {
-  height: 100vh;
-}
+/* Layout */
+.root   { height: 100vh; }
+.header { height: 48px; display: flex; align-items: center; padding: 0 16px; }
+.logo   { cursor: pointer; margin: 0; font-weight: 700; }
 
-.header {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-}
+.body-row { height: calc(100vh - 48px); }
+.main     { height: 100%; overflow: auto; padding: 1rem; }
 
-.body-row {
-  height: calc(100vh - 48px);
-}
-
-/* subtract header */
-.side {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.main {
-  height: calc(100% - 1rem);
-  display: flex;
-  flex-direction: column;
-  margin-left: 1rem;
-  margin-right: 1rem;
-  margin-top: 1rem;
-}
-
-.result {
-  flex: 1 1 auto;
-  overflow: auto;
+/* Padding for icons */
+.nav-sider :deep(.n-icon) {
+  padding-left: 13px;
 }
 </style>
-

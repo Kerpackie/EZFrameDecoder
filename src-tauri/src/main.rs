@@ -12,7 +12,7 @@ use tauri_plugin_fs::init as fs_plugin;
 use dirs_next::config_dir;
 
 /* ───────────── constants ───────────── */
-const APP_DIR: &str = "FrameDecoder";
+const APP_DIR: &str = "EZFrameDecoder";
 const USER_SPEC_FILE: &str = "spec_override.json";
 
 /* Bundled default, embedded at compile-time */
