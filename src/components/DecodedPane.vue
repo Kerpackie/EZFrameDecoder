@@ -1,10 +1,15 @@
 <template>
-  <decoded-view class="scroll-hide" :result="decoded" :error="error" />
+  <decoded-view
+      :result="result"
+      :error="error"
+      class="flex-1"
+  />
 </template>
 
 <script setup lang="ts">
 import { useSharedDecode } from "../composables/useSharedDecode";
-import DecodedView from "./DecodedView.vue";
+import DecodedView from "../components/DecodedView.vue";
 
-const { decoded, error } = useSharedDecode();
+/* The shared composable holds reactive result & error */
+const { result, error } = useSharedDecode();
 </script>

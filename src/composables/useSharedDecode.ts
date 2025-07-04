@@ -1,19 +1,18 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
-const decoded = ref<any | null>(null);
-const error   = ref<string | null>(null);
-
-async function run(frame: string) {
-    decoded.value = null;
-    error.value = null;
-    try {
-        decoded.value = await invoke("decode_frame", { frame });
-    } catch (e: any) {
-        error.value = String(e);
-    }
-}
+const result = ref(null);
+const error  = ref<string | null>(null);
 
 export function useSharedDecode() {
-    return { decoded, error, run };
+    async function run(frame: string) {
+        try {
+            result.value = await invoke("decode_frame", { frame });
+            error.value  = null;
+        } catch (e: any) {
+            result.value = null;
+            error.value  = String(e);
+        }
+    }
+    return { run, result, error };
 }
