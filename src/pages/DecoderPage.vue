@@ -1,10 +1,22 @@
 <template>
-  <n-layout has-sider class="decoder-page-layout">
-    <n-layout-sider width="310" bordered class="side">
+  <n-layout has-sider class="decoder-layout">
+    <!-- Command list sidebar -->
+    <n-layout-sider
+        :width="isMedium ? 220 : 310"
+        :collapsed-width="isMedium ? 0 : 220"
+        :collapsed="collapsed"
+        :show-trigger="isMedium"
+        collapse-mode="width"
+        bordered
+        class="cmd-sider"
+        @collapse="collapsed = true"
+        @expand="collapsed = false"
+    >
       <command-list />
     </n-layout-sider>
 
-    <n-layout-content class="main-content">
+    <!-- Main content -->
+    <n-layout-content class="decode-main">
       <decoder-input />
       <decoded-pane class="result scroll-hide" />
     </n-layout-content>
@@ -12,29 +24,34 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from "vue";
 import { NLayout, NLayoutSider, NLayoutContent } from "naive-ui";
-import CommandList from "../components/CommandList.vue";
-import DecoderInput from "../components/DecoderInput.vue";
-import DecodedPane from "../components/DecodedPane.vue";
+import CommandList   from "../components/CommandList.vue";
+import DecoderInput  from "../components/DecoderInput.vue";
+import DecodedPane   from "../components/DecodedPane.vue";
+import { useBreakpoint } from "../composables/useBreakpoint";
+
+const isMedium = useBreakpoint("(max-width: 1200px)");
+const collapsed = ref(isMedium.value);
+
+watch(isMedium, val => {
+  collapsed.value = val; // auto collapse when resizing small
+});
 </script>
 
 <style scoped>
-.decoder-page-layout {
-  height: 100%;
-  display: flex;
+.decoder-layout { height: 100%; }
+
+.cmd-sider {
+  transition: width 0.3s ease;
+  background-color: #f8f9fa;
 }
 
-.side {
-  height: 100%;
+.decode-main {
   display: flex;
   flex-direction: column;
-}
-
-.main-content {
-  flex: 1 1 auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
+  gap: 1rem;
+  padding: 0 1rem;
 }
 
 .result {
