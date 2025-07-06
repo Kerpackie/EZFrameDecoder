@@ -113,7 +113,7 @@ The spec file defines commands, fields, and their decoding rules:
 
 ### Frontend (Vue 3 + TypeScript)
 - [`src/components/DecoderInput.vue`](src/components/DecoderInput.vue) - Frame input component
-- [`src/components/CommandList.vue`](src/components/CommandList.vue) - File upload and frame list
+- [`src/components/CommandList.vue`](src/components/FrameList.vue) - File upload and frame list
 - [`src/composables/useSharedDecode`](src/composables/) - Shared decoding logic
 - [`src/stores/frameStore`](src/stores/) - Frame state management
 

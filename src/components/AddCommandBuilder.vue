@@ -1,271 +1,207 @@
 <template>
   <n-card embedded>
-    <n-h3 class="m-0">New Command Builder</n-h3>
+    <n-h3 class="m-0">
+      {{ mode === 'edit' ? `Edit Command ${cmd.letter}` : 'New Command Builder' }}
+    </n-h3>
 
-    <!-- ───── 1. metadata ───── -->
+    <!-- ───── command meta ───── -->
     <n-form :model="cmd" label-width="120" class="mb-5">
       <n-form-item label="Letter">
-        <n-input v-model:value="cmd.letter" maxlength="1" placeholder="A-Z" />
+        <n-input
+            v-model:value="cmd.letter"
+            maxlength="1"
+            placeholder="A-Z"
+            :disabled="letterDisabled"
+        />
       </n-form-item>
       <n-form-item label="Description">
         <n-input v-model:value="cmd.description" />
       </n-form-item>
     </n-form>
 
-    <!-- ───── 2. add-item buttons ───── -->
+    <!-- ───── add buttons ───── -->
     <n-button-group class="mb-4">
       <n-button @click="addItem('group')">+ Add Group</n-button>
       <n-button @click="addItem('switch')">+ Add Switch</n-button>
     </n-button-group>
 
-    <!-- ───── 3. items list ───── -->
+    <!-- ───── items list ───── -->
     <div v-for="(item, idx) in cmd.items" :key="idx" class="mb-3 item-block">
-      <!-- ── GROUP ── -->
-      <n-card
+      <!-- group -->
+      <FieldEditor
           v-if="item.kind === 'group'"
-          size="small"
-          :title="item.name || 'Group'"
-          :closable="idx !== 0"
-          @close="removeItem(idx)"
-      >
-        <n-form label-width="110" class="mb-3">
-          <n-form-item label="Group name">
-            <n-input v-model:value="item.name" :disabled="idx === 0" />
-          </n-form-item>
-        </n-form>
+          v-model:fields="item.fields"
+          :locked-names="idx === 0 ? ['RSAddress'] : []"
+          @remove="idx !== 0 && cmd.items.splice(idx,1)"
+      />
 
-        <FieldEditor v-model:fields="item.fields" />
-      </n-card>
-
-      <!-- ── SWITCH ── -->
+      <!-- switch -->
       <SwitchEditor
-          v-else-if="item.kind === 'switch'"
+          v-else
           :item="item"
-          :onRemove="() => removeItem(idx)"
+          :header-fields="headerFields"
+          :onRemove="() => cmd.items.splice(idx,1)"
       />
     </div>
 
-    <!-- ───── 4. validation & preview ───── -->
+    <!-- ───── validation & preview ───── -->
     <n-alert v-if="errors.length" type="error" class="mb-3">
       <ul style="padding-left:20px;margin:0">
         <li v-for="err in errors" :key="err">{{ err }}</li>
       </ul>
     </n-alert>
 
-    <n-text depth="3" class="mb-2">
-      Remaining hex chars: {{ remaining }}
-    </n-text>
-
+    <n-text depth="3" class="mb-2">Remaining hex chars: {{ remaining }}</n-text>
     <n-code :code="preview" language="json" class="mb-4" />
 
-    <n-button type="primary" @click="submit" :disabled="submitDisabled">Submit</n-button>
-    <n-button class="ml-2" @click="reset">Reset</n-button>
-    <n-button class="ml-2" @click="downloadSpec">💾 Download Spec</n-button>
-
-    <!-- reference -->
-    <n-divider>Valid data sizes</n-divider>
-    <n-table :bordered="false" size="small" style="max-width:520px">
-      <thead><tr><th>Len</th><th>Rust type</th></tr></thead>
-      <tbody>
-      <tr v-for="[l,t] in Object.entries(LEN_MAP)" :key="l"><td>{{ l }}</td><td>{{ t }}</td></tr>
-      </tbody>
-    </n-table>
+    <n-button
+        type="primary"
+        @click="submit"
+        :disabled="errors.length"
+    >
+      {{ mode === 'edit' ? 'Save' : 'Submit' }}
+    </n-button>
+    <n-button class="ml-2" v-if="mode==='create'" @click="reset">Reset</n-button>
+    <n-button class="ml-2" v-else @click="$emit('cancel')">Cancel</n-button>
   </n-card>
 </template>
 
 <script setup lang="ts">
 import {
-  NCard, NForm, NFormItem, NInput, NButton, NButtonGroup,
-  NAlert, NText, NDivider, NCode, NTable, useMessage
+  NCard, NForm, NFormItem, NInput,
+  NButton, NButtonGroup, NAlert,
+  NText, NCode, useMessage
 } from 'naive-ui'
-import { ref, computed } from 'vue'
-import FieldEditor from './FieldEditor.vue'
-import SwitchEditor from './SwitchEditor.vue'
+import { ref, computed, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import FieldEditor  from './FieldEditor.vue'
+import SwitchEditor from './SwitchEditor.vue'
 
-/* ---------- helpers ---------- */
-const LEN_MAP = { 2: 'u8', 4: 'u16', 6: 'u24', 8: 'u32', 16: 'u64' } as const
-const MAX = 21
-const MIN = 18
-const msg = useMessage()
-
-/* ---------- types ---------- */
-interface Field {
-  name: string
-  len: number
-  base?: 10 | 16
-  type: 'number' | 'bool'
-  description?: string
-}
-interface Group {
-  kind: 'group'
-  name: string
-  fields: Field[]
-}
-interface SwitchCase {
-  description?: string
-  groups: Group[]
-}
-interface SwitchItem {
-  kind: 'switch'
-  switch: string
-  cases: Record<string, SwitchCase>
-  default?: SwitchCase | null
-}
-type Item = Group | SwitchItem
-
-/* ---------- state ---------- */
-const cmd = ref<{ letter: string; description: string; items: Item[] }>({
-  letter: '',
-  description: '',
-  items: [{ kind: 'group', name: 'Header', fields: [] }]
+/* ---------- props ---------- */
+const props = defineProps({
+  mode:   { type: String, default: 'create' },        // 'create' | 'edit'
+  initial:{ type: Object, default: null },            // command to edit
+  existingLetters: { type: Array, default: () => [] } // for create-mode duplicate check
 })
+const emit = defineEmits(['saved','cancel'])
 
-/* ---------- add / remove ---------- */
-function addItem (kind: 'group' | 'switch' = 'group') {
-  if (kind === 'group') {
-    cmd.value.items.push({ kind: 'group', name: 'Group', fields: [] })
-  } else {
-    cmd.value.items.push({ kind: 'switch', switch: 'Opcode', cases: {}, default: null })
+const deepCopy = (o:any)=> JSON.parse(JSON.stringify(o||{}))
+
+/* ---------- base command template ---------- */
+function blankCommand () {
+  return {
+    letter: '',
+    description: '',
+    items: [
+      {
+        kind:'group',
+        name:'Header',
+        fields:[
+          { name:'RSAddress', len:2, base:16, type:'number', description:'Device address on bus' }
+        ]
+      }
+    ]
   }
 }
-function removeItem (i: number) {
-  if (i !== 0) cmd.value.items.splice(i, 1)
+
+/* ---------- reactive state ---------- */
+const cmd = ref(props.mode === 'edit'
+    ? deepCopy(props.initial)
+    : blankCommand()
+)
+
+/* ---------- computed helpers ---------- */
+const letterDisabled = computed(()=> props.mode === 'edit')
+
+const headerFields = computed(() =>
+    cmd.value.items[0]?.kind==='group'
+        ? cmd.value.items[0].fields.map((f:any)=>f.name)
+        : []
+)
+
+/* ---------- add / remove items ---------- */
+function addItem(kind:'group'|'switch'){
+  if(kind==='group'){
+    cmd.value.items.push({ kind:'group', name:'Group', fields:[] })
+  }else{
+    cmd.value.items.push({ kind:'switch', switch:'', cases:{}, default:null })
+  }
 }
 
-/* ---------- flatten fields ---------- */
-function allFields (): Field[] {
-  const list: Field[] = []
-  cmd.value.items.forEach(it => {
-    if (it.kind === 'group') {
-      list.push(...it.fields)
-    } else {
-      Object.values(it.cases).forEach(c => c.groups.forEach(g => list.push(...g.fields)))
-      if (it.default) it.default.groups.forEach(g => list.push(...g.fields))
+/* ---------- validation ---------- */
+const LEN_MAP = {2:'u8',4:'u16',6:'u24',8:'u32',16:'u64'} as const
+const MAX=21, MIN=18
+function allFields(){
+  const list:any[]=[]
+  cmd.value.items.forEach((it:any)=>{
+    if(it.kind==='group') list.push(...it.fields)
+    else{
+      if(it.cases) Object.values(it.cases).forEach((c:any)=>c.groups.forEach((g:any)=>list.push(...g.fields)))
+      if(it.default) it.default.groups.forEach((g:any)=>list.push(...g.fields))
     }
   })
   return list
 }
+const total     = computed(()=> allFields().reduce((s,f)=>s+f.len,0))
+const remaining = computed(()=> MAX-total.value)
 
-/* ---------- length + errors ---------- */
-const total = computed(() => allFields().reduce((s, f) => s + f.len, 0))
-const remaining = computed(() => MAX - total.value)
-const errors = computed(() => {
-  const e: string[] = []
-  for (const f of allFields()) {
-    if (f.type === 'bool' && f.len !== 2) e.push(`Bool "${f.name}" len must be 2`)
-    if (f.type === 'number' && !(f.len in LEN_MAP)) {
-      e.push(`Field "${f.name}" len ${f.len} not 2/4/6/8/16`)
+const errors = computed(()=>{
+  const e:string[]=[]
+  /* duplicate letter (create-mode only) */
+  if(props.mode==='create' && props.existingLetters.includes(cmd.value.letter)){
+    e.push(`Letter ${cmd.value.letter} already exists`)
+  }
+
+  function checkGroup(g:any){
+    const seen=new Set<string>()
+    g.fields.forEach((f:any)=>{
+      if(!f.name.trim()) e.push(`Field with no name in "${g.name}"`)
+      const k=f.name.trim().toLowerCase()
+      if(seen.has(k)) e.push(`Duplicate field "${f.name}" in "${g.name}"`)
+      seen.add(k)
+      if(f.type==='bool'&&f.len!==2) e.push(`Bool "${f.name}" len≠2`)
+      if(f.type==='number'&&!(f.len in LEN_MAP)) e.push(`Len ${f.len} invalid`)
+    })
+  }
+  cmd.value.items.forEach((it:any)=>{
+    if(it.kind==='group') checkGroup(it)
+    else{
+      if(it.cases) Object.values(it.cases).forEach((c:any)=>c.groups.forEach(checkGroup))
+      if(it.default) it.default.groups.forEach(checkGroup)
     }
-  }
-  if (total.value < MIN || total.value > MAX) {
-    e.push(`Frame length ${total.value} must be ${MIN}-${MAX}`)
-  }
+  })
+  if(total.value<MIN||total.value>MAX) e.push(`Frame len ${total.value} not ${MIN}-${MAX}`)
   return e
 })
-const submitDisabled = computed(
-    () => errors.value.length > 0 || total.value < MIN || total.value > MAX
-)
 
-/* ---------- JSON preview ---------- */
-const preview = computed(() =>
-    JSON.stringify(
-        {
-          letter: cmd.value.letter.toUpperCase(),
-          description: cmd.value.description,
-          items: cmd.value.items.map(it => {
-            if (it.kind === 'group') {
-              return {
-                name: it.name,
-                fields: it.fields.map(f => ({
-                  name: f.name,
-                  len: f.len,
-                  base: f.type === 'bool' ? undefined : f.base,
-                  type: f.type === 'bool' ? 'bool' : LEN_MAP[f.len as keyof typeof LEN_MAP],
-                  description: f.description
-                }))
-              }
-            }
-            // switch
-            const sw = it as SwitchItem
-            const cases: Record<string, any> = {}
-            for (const [k, v] of Object.entries(sw.cases)) {
-              cases[k] = {
-                description: v.description,
-                groups: v.groups.map(g => ({
-                  name: g.name,
-                  fields: g.fields.map(f => ({
-                    name: f.name,
-                    len: f.len,
-                    base: f.type === 'bool' ? undefined : f.base,
-                    type: f.type === 'bool' ? 'bool' : LEN_MAP[f.len as keyof typeof LEN_MAP],
-                    description: f.description
-                  }))
-                }))
-              }
-            }
-            const obj: any = { switch: sw.switch, cases }
-            if (sw.default) {
-              obj.default = {
-                description: sw.default.description,
-                groups: sw.default.groups.map(g => ({
-                  name: g.name,
-                  fields: g.fields.map(f => ({
-                    name: f.name,
-                    len: f.len,
-                    base: f.type === 'bool' ? undefined : f.base,
-                    type: f.type === 'bool' ? 'bool' : LEN_MAP[f.len as keyof typeof LEN_MAP],
-                    description: f.description
-                  }))
-                }))
-              }
-            }
-            return obj
-          })
-        },
-        null,
-        2
-    )
-)
-
-/* ---------- download ---------- */
-function downloadSpec () {
-  const blob = new Blob([preview.value], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `command-${cmd.value.letter || 'X'}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-}
+/* ---------- preview ---------- */
+const preview = computed(()=> JSON.stringify(cmd.value,null,2))
 
 /* ---------- submit ---------- */
-async function submit () {
-  if (errors.value.length) {
-    msg.error('Fix errors first')
-    return
+const msg = useMessage()
+async function submit(){
+  if(errors.value.length){ msg.error('Fix validation errors'); return }
+  const payload = deepCopy(cmd.value)
+
+  if(props.mode==='edit'){
+    await invoke('update_command',{ updatedCmd: payload })
+    msg.success('Saved')
+  }else{
+    await invoke('append_command',{ newCmd: payload })
+    msg.success('Created')
   }
-  if (!/^[A-Z]$/i.test(cmd.value.letter)) {
-    msg.error('Letter A-Z')
-    return
-  }
-  try {
-    await invoke('append_command', { newCmd: JSON.parse(preview.value) })
-    msg.success('Saved!')
-  } catch (e: any) {
-    msg.error(String(e))
-  }
+  emit('saved', payload)
 }
 
-/* ---------- reset ---------- */
-function reset () {
-  cmd.value.letter = ''
-  cmd.value.description = ''
-  cmd.value.items = [{ kind: 'group', name: 'Header', fields: [] }]
-}
+/* ---------- reset (create-mode) ---------- */
+function reset(){ cmd.value = blankCommand() }
+
+/* ---------- keep cmd in sync if parent passes new initial (edit switching) ---------- */
+watch(()=>props.initial, nv=>{
+  if(props.mode==='edit' && nv) cmd.value = deepCopy(nv)
+})
 </script>
 
 <style scoped>
-.item-block { position: relative; }
-.case-block { position: relative; }
+.item-block{ position:relative; }
 </style>

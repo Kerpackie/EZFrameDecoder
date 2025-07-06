@@ -12,7 +12,7 @@
         @collapse="collapsed = true"
         @expand="collapsed = false"
     >
-      <command-list />
+      <frame-list />
     </n-layout-sider>
 
     <!-- Main content -->
@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { NLayout, NLayoutSider, NLayoutContent } from "naive-ui";
-import CommandList   from "../components/CommandList.vue";
+import FrameList   from "../components/FrameList.vue";
 import DecoderInput  from "../components/DecoderInput.vue";
 import DecodedPane   from "../components/DecodedPane.vue";
 import { useBreakpoint } from "../composables/useBreakpoint";

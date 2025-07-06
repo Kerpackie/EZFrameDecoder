@@ -71,6 +71,7 @@ const route = useRoute();
 const menuOptions = [
   { label: "Decode", key: "/", icon: icon(DocumentTextOutline) },
   { label: "Add Command", key: "/add-command", icon: icon(AddCircleOutline) },
+  { label: "Commands", key: "/edit", icon: icon(DocumentTextOutline) },
   { label: "About", key: "/about", icon: icon(InformationCircleOutline) }
 ];
 

@@ -10,6 +10,7 @@ use once_cell::sync::Lazy;
 use std::{fs, path::PathBuf, sync::RwLock};
 use tauri_plugin_fs::init as fs_plugin;
 use dirs_next::config_dir;
+use crate::decoder::Command;
 
 /* ───────────── constants ───────────── */
 const APP_DIR: &str = "EZFrameDecoder";
@@ -170,6 +171,66 @@ fn append_command(new_cmd: serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_commands() -> Result<Vec<serde_json::Value>, String> {
+    let spec = SPEC.read().unwrap();
+
+    spec.commands
+        .iter()
+        .map(|c| serde_json::to_value(c).map_err(|e| e.to_string()))
+        .collect()
+}
+
+#[tauri::command]
+fn update_command(updated_cmd: serde_json::Value) -> Result<(), String> {
+    let letter = updated_cmd["letter"].as_str().ok_or("No letter")?;
+    let path = ensure_user_spec().map_err(|e| e.to_string())?;
+    let mut spec: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+
+    let cmds = spec
+        .get_mut("commands")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("Bad spec")?;
+
+    if let Some(slot) = cmds.iter_mut().find(|c| c["letter"] == letter) {
+        *slot = updated_cmd;
+    } else {
+        return Err("Command not found".into());
+    }
+
+    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
+        .map_err(|e| e.to_string())?;
+    reload_spec()?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_command(letter: String) -> Result<(), String> {
+    let path = ensure_user_spec().map_err(|e| e.to_string())?;
+    let mut spec: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+
+    let cmds = spec
+        .get_mut("commands")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("Bad spec")?;
+
+    let before = cmds.len();
+    cmds.retain(|c| c["letter"] != letter);
+    if cmds.len() == before {
+        return Err("Letter not found".into());
+    }
+
+    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
+        .map_err(|e| e.to_string())?;
+    reload_spec()?;
+    Ok(())
+}
+
+
 /* ─────────────── main entry ─────────────── */
 
 fn main() {
@@ -179,7 +240,10 @@ fn main() {
             decode_frame,
             batch_decode,
             reload_spec,
-            append_command
+            append_command,
+            get_commands,
+            update_command,
+            delete_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri app");
