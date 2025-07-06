@@ -1,23 +1,24 @@
 <template>
-  <n-list bordered hoverable clickable>
+  <n-list bordered>
     <n-list-item
         v-for="cmd in commands"
         :key="cmd.letter"
-        @click="$emit('select', cmd)"
+        class="flex justify-between items-center"
     >
-      <template #prefix>
-        <n-tag type="info">{{ cmd.letter }}</n-tag>
-      </template>
+      <span>{{ cmd.letter }} — {{ cmd.description || '' }}</span>
 
-      <div class="flex justify-between w-full items-center">
-        <span class="font-medium">{{ cmd.description || '(no description)' }}</span>
+      <div class="flex gap-1">
+        <n-button size="tiny" quaternary @click="$emit('select', cmd)">
+          Edit
+        </n-button>
+
         <n-button
-            circle
-            size="small"
-            tertiary
-            @click.stop="$emit('delete', cmd.letter)"
+            size="tiny"
+            quaternary
+            type="error"
+            @click="confirmDelete(cmd)"
         >
-          <template #icon><n-icon><trash-outline /></n-icon></template>
+          Delete
         </n-button>
       </div>
     </n-list-item>
@@ -25,9 +26,19 @@
 </template>
 
 <script setup lang="ts">
-import { NList, NListItem, NTag, NButton } from 'naive-ui'
-import { TrashOutline } from '@vicons/ionicons5'
+import { NList, NListItem, NButton, useDialog } from 'naive-ui'
 
-defineProps<{ commands: { letter: string; description?: string }[] }>()
-defineEmits<{ (e: 'select', cmd: any): void; (e: 'delete', letter: string): void }>()
+defineProps<{ commands: any[] }>()
+const emit = defineEmits(['select', 'delete'])
+const dialog = useDialog()
+
+function confirmDelete(cmd: any) {
+  dialog.warning({
+    title: 'Delete command',
+    content: `Are you sure you want to delete “${cmd.letter}”?`,
+    positiveText: 'Delete',
+    negativeText: 'Cancel',
+    onPositiveClick: () => emit('delete', cmd)
+  })
+}
 </script>

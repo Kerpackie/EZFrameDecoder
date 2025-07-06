@@ -1,5 +1,6 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
+    <n-dialog-provider>
     <n-message-provider>
       <n-layout class="root">
 
@@ -38,6 +39,7 @@
         </n-layout>
       </n-layout>
     </n-message-provider>
+    </n-dialog-provider>
   </n-config-provider>
 </template>
 
