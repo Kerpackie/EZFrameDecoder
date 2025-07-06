@@ -52,7 +52,9 @@
           circle quaternary size="small"
           @click="remove(idx)"
       >
-        <template #icon><n-icon><close-outline /></n-icon></template>
+        <template #icon>
+          <n-icon><close-outline /></n-icon>
+        </template>
       </n-button>
     </div>
 
@@ -76,15 +78,16 @@ const props = defineProps({
   lockedNames: { type: Array, default: () => [] }
 })
 
-/* ---------- helpers ---------- */
-function isLocked (f: any) {
+function isLocked(f: any) {
   return props.lockedNames.includes(f.name)
 }
-function remove (idx: number) {
+
+function remove(idx: number) {
   props.fields.splice(idx, 1)
 }
-function addField () {
-  // auto-generate name field-n that is unique in this group
+
+function addField() {
+  // auto-generate a unique field name
   let n = props.fields.length + 1
   let candidate = `field-${n}`
   const exists = (name: string) => props.fields.some((f: any) => f.name === name)
@@ -101,7 +104,7 @@ function addField () {
   })
 }
 
-/* ---------- selects ---------- */
+/* ---------- select options ---------- */
 const TYPE_OPTS = [
   { label: 'number', value: 'number' },
   { label: 'bool', value: 'bool' }
@@ -113,11 +116,30 @@ const BASE_OPTS = [
 </script>
 
 <style scoped>
-.field-editor { display:flex; flex-direction:column; gap:.75rem; }
-.field-row { display:flex; flex-wrap:wrap; gap:.5rem; align-items:flex-start; }
-.field-input { width:160px; }
-.field-len   { width:70px; }
-.field-type  { width:110px; }
-.field-base  { width:90px; }
-.field-desc  { flex:1; }
+.field-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.field-input {
+  width: 160px;
+}
+.field-len {
+  width: 70px;
+}
+.field-type {
+  width: 110px;
+}
+.field-base {
+  width: 90px;
+}
+.field-desc {
+  flex: 1;
+}
 </style>
