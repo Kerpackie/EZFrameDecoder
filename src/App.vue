@@ -1,5 +1,6 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
+    <n-dialog-provider>
     <n-message-provider>
       <n-layout class="root">
 
@@ -38,6 +39,7 @@
         </n-layout>
       </n-layout>
     </n-message-provider>
+    </n-dialog-provider>
   </n-config-provider>
 </template>
 
@@ -71,6 +73,7 @@ const route = useRoute();
 const menuOptions = [
   { label: "Decode", key: "/", icon: icon(DocumentTextOutline) },
   { label: "Add Command", key: "/add-command", icon: icon(AddCircleOutline) },
+  { label: "Commands", key: "/edit", icon: icon(DocumentTextOutline) },
   { label: "About", key: "/about", icon: icon(InformationCircleOutline) }
 ];
 

@@ -1,5 +1,5 @@
 <template>
-  <add-command-builder />
+  <add-command-builder/>
 </template>
 
 <script setup lang="ts">
