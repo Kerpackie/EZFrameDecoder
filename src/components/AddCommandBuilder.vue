@@ -97,14 +97,13 @@ const msg  = useMessage()
 /* ---------- util ---------- */
 const deepCopy = (o:any)=> JSON.parse(JSON.stringify(o ?? {}))
 
-/* --------- new helper: convert rust-type → abstract type --------- */
-function normaliseField (f:any) {
+function normaliseField(f: any) {
   if (typeof f.type === 'string' && f.type.startsWith('u')) {
-    const lenMap = { u8:2, u16:4, u24:6, u32:8, u64:16 }
-    const len = lenMap[f.type as keyof typeof lenMap]
-    if (len) {
-      f.type = 'number'
-      f.len  = len
+    const lenMap = { u8: 2, u16: 4, u24: 6, u32: 8, u64: 16 }
+    f.type = 'number'
+    if (f.len == null || isNaN(f.len)) {
+      const def = lenMap[f.type as keyof typeof lenMap]
+      if (def) f.len = def
     }
   }
 }
@@ -202,34 +201,49 @@ function effectiveFields():any[]{
 const total     = computed(()=> effectiveFields().reduce((s,f)=>s+f.len,0))
 const remaining = computed(()=> MAX-total.value)
 
-const errors = computed(()=>{
-  const e:string[]=[]
-  if (props.mode==='create' && props.existingLetters.includes(cmd.value.letter))
-    e.push(`Letter ${cmd.value.letter} already exists`)
+const errors = computed(() => {
+  const e: string[] = []
 
-  /* dedupe & rules */
-  cmd.value.items.forEach((it:any)=>{
-    const groups = it.kind==='group'
-        ? [it]
-        : [
-          ...Object.values(it.cases).flatMap((v:any)=>v.groups),
-          ...(it.default?.groups ?? [])
-        ]
-    groups.forEach((g:any)=>{
-      const seen=new Set<string>()
-      g.fields.forEach((f:any)=>{
-        const id=f.name.trim().toLowerCase()
+  /* duplicate letter (create-mode only) */
+  if (
+      props.mode === 'create' &&
+      props.existingLetters.includes(cmd.value.letter)
+  ) {
+    e.push(`Letter ${cmd.value.letter} already exists`)
+  }
+
+  /* per-group duplicate & per-field rules */
+  cmd.value.items.forEach((it: any) => {
+    const groups =
+        it.kind === 'group'
+            ? [it]
+            : [
+              ...Object.values(it.cases).flatMap((v: any) => v.groups),
+              ...(it.default?.groups ?? [])
+            ]
+
+    groups.forEach((g: any) => {
+      const seen = new Set<string>()
+      g.fields.forEach((f: any) => {
+        const id = f.name.trim().toLowerCase()
         if (!id) e.push('Unnamed field')
-        if (seen.has(id)) e.push(`Duplicate field "${f.name}" in "${g.name}"`)
+        if (seen.has(id))
+          e.push(`Duplicate field "${f.name}" in "${g.name}"`)
         seen.add(id)
-        if (f.type==='bool'   && f.len!==1)             e.push(`Bool "${f.name}" len≠1`)
-        if (f.type==='number' && !(f.len in LEN_MAP))   e.push(`Len ${f.len} invalid`)
+
+        /* ---- length/type rules ---- */
+        if (f.type === 'bool' && f.len !== 1)
+          e.push(`Bool "${f.name}" must have len = 1`)
+        if (f.type === 'number' && (f.len < 1 || f.len > 16))
+          e.push(`Len ${f.len} invalid (must be 1-16)`)
       })
     })
   })
 
-  if (total.value<MIN || total.value>MAX)
+  /* effective-length rule */
+  if (total.value < MIN || total.value > MAX)
     e.push(`Frame len ${total.value} not ${MIN}-${MAX}`)
+
   return e
 })
 
