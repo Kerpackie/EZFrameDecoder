@@ -110,8 +110,8 @@ const TYPE_OPTS = [
   { label: 'bool', value: 'bool' }
 ]
 const BASE_OPTS = [
-  { label: 'hex (16)', value: 16 },
-  { label: 'dec (10)', value: 10 }
+  { label: 'hex', value: 16 },
+  { label: 'dec', value: 10 }
 ]
 </script>
 
