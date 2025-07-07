@@ -165,7 +165,7 @@ pnpm tauri build --target x86_64-unknown-linux-gnu  # Linux
 
 ## License
 
-TBD.
+Released and Open Source under the Apache 2.0 License, available under `LICENSE`
 
 ## Contributing
 
