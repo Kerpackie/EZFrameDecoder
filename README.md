@@ -165,7 +165,21 @@ pnpm tauri build --target x86_64-unknown-linux-gnu  # Linux
 
 ## License
 
-Released and Open Source under the Apache 2.0 License, available under `LICENSE`
+This project is licensed under the **Apache License 2.0**. You are free to:
+
+* **Use** the software for commercial or non-commercial purposes.
+* **Modify** the code to suit your needs.
+* **Distribute** original or modified versions, provided you retain the license and attribution.
+
+#### Why Apache 2.0?
+
+The Apache 2.0 license was chosen to encourage adoption — including by commercial and industrial users — while providing legal clarity around:
+
+* **Patent use**: Users are granted a license to any relevant patents held by contributors.
+* **Attribution**: Credit must be given to the original author(s).
+* **Modification notice**: If you distribute a modified version, you must document the changes.
+
+For full license details, see the [LICENSE](./LICENSE) file.
 
 ## Contributing
 
