@@ -1,87 +1,57 @@
 <template>
-  <!-- accordion: only one command open at a time -->
-  <n-collapse v-model:expanded-names="openKeys" accordion>
+  <n-collapse v-model:expanded-names="open" accordion>
     <n-collapse-item
         v-for="cmd in commands"
-        :key="cmd.letter"
-        :name="cmd.letter"
-        class="mb-1"
-    >
-      <!-- ───────── header row ───────── -->
+        :key="cmd.letter + cmd.familyStart"
+        :name="cmd.letter + cmd.familyStart">
       <template #header>
-        <div class="flex justify-between items-center w-full">
-          <span>{{ cmd.letter }} — {{ cmd.description || 'no description' }}</span>
-
-          <!-- action buttons -->
+        <div class="w-full flex justify-between">
+          <div>
+            <code>{{ cmd.familyStart }}</code>
+            {{ cmd.letter }} — {{ cmd.description || 'no description' }}
+          </div>
           <div class="flex gap-1">
-            <n-button
-                size="tiny"
-                quaternary
-                @click.stop="toggleEdit(cmd.letter)"
-            >
-              {{ editLetter === cmd.letter ? 'Close' : 'Edit' }}
+            <n-button size="tiny" quaternary @click.stop="toggle(cmd)">
+              {{ editing === cmd ? 'Close' : 'Edit' }}
             </n-button>
-
-            <n-button
-                size="tiny"
-                quaternary
-                type="error"
-                @click.stop="confirmDelete(cmd)"
-            >
-              Delete
-            </n-button>
+            <n-button size="tiny" quaternary type="error"
+                      @click.stop="askDelete(cmd)">Delete</n-button>
           </div>
         </div>
       </template>
 
-      <!-- ───────── expanded body ───────── -->
-      <AddCommandBuilder
-          v-if="editLetter === cmd.letter"
-          mode="edit"
-          :initial="cmd"
-          @saved="$emit('refresh')"
-          @cancel="editLetter = null"
-      />
-      <CommandViewer
-          v-else
-          :command="cmd"
-      />
+      <component :is="editing === cmd ? 'AddCommandBuilder' : 'CommandViewer'"
+                 :command="cmd"
+                 mode="edit"
+                 :initial="cmd"
+                 @saved="$emit('refresh')"
+                 @cancel="editing = null"/>
     </n-collapse-item>
   </n-collapse>
 </template>
 
 <script setup lang="ts">
-import {
-  NCollapse,
-  NCollapseItem,
-  NButton,
-  useDialog
-} from 'naive-ui'
 import { ref } from 'vue'
-import CommandViewer from './CommandViewer.vue'
+import { useDialog, NCollapse, NCollapseItem, NButton } from 'naive-ui'
+import CommandViewer     from './CommandViewer.vue'
 import AddCommandBuilder from './AddCommandBuilder.vue'
 
-/* props & emits */
-defineProps<{ commands: any[] }>()
-const emit = defineEmits(['refresh', 'delete'])
+defineProps<{ commands:any[] }>()
+const emit = defineEmits(['edit','delete','refresh'])
 
-/* collapse state */
-const openKeys = ref<string[]>([])
-const editLetter = ref<string | null>(null)
+const open    = ref<string[]>([])
+const editing = ref<any|null>(null)
 
-function toggleEdit(letter: string) {
-  editLetter.value = editLetter.value === letter ? null : letter
+function toggle(cmd:any){
+  editing.value = (editing.value === cmd ? null : cmd)
 }
 
-/* delete confirmation */
-const dialog = useDialog()
-function confirmDelete(cmd: any) {
-  dialog.warning({
-    title: 'Delete command',
-    content: `Are you sure you want to delete “${cmd.letter}”?`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
-    onPositiveClick: () => emit('delete', cmd)
+const dia = useDialog()
+function askDelete(cmd:any){
+  dia.warning({
+    title:'Delete', content:`Delete ${cmd.letter}?`,
+    positiveText:'Delete', negativeText:'Cancel',
+    onPositiveClick:()=> emit('delete',cmd)
   })
 }
 </script>
