@@ -71,13 +71,11 @@
       <n-code :code="preview" language="json" class="mb-4"/>
 
       <div>
-        <n-space>
-          <n-button type="primary" @click="submit" :disabled="errors.length">
-            {{ mode === 'edit' ? 'Save' : 'Submit' }}
-          </n-button>
-          <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
-          <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
-        </n-space>
+        <n-button type="primary" @click="submit" :disabled="errors.length">
+          {{ mode === 'edit' ? 'Save' : 'Submit' }}
+        </n-button>
+        <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
+        <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
       </div>
     </n-space>
   </n-space>
@@ -122,10 +120,6 @@ function normalise(items: any[]) {
       )
     }
   })
-}
-
-function stripKind(items: any[]) {
-  return items.map(({kind, ...r}: any) => r)
 }
 
 function blankCommand() {
@@ -260,24 +254,29 @@ const errors = computed(() => {
   return e
 })
 
+// --- CORRECTED PAYLOAD TRANSFORMATION ---
 function getTransformedItems() {
   const itemsCopy = deepCopy(cmd.value.items);
+
   const lenToTypeMap: { [key: number]: string } = {
     2: 'u8', 4: 'u16', 6: 'u24', 8: 'u32', 16: 'u64'
   };
+
   const transformField = (field: any) => {
+    // The UI state uses `field.type` which is 'number' or 'bool'.
+    // We need to transform this into the specific string the backend expects.
     if (field.type === 'number') {
-      field.typ = lenToTypeMap[field.len] || 'u32';
-      delete field.type;
-    } else {
-      field.typ = field.type;
-      delete field.type;
+      // Overwrite the 'type' property for the final JSON payload.
+      field.type = lenToTypeMap[field.len] || 'u32';
     }
+    // If field.type is 'bool', it's already in the correct format for the backend,
+    // so no transformation is needed.
   };
+
   itemsCopy.forEach((item: any) => {
-    if (item.kind === 'group') {
+    if ('fields' in item) { // This is a Group
       item.fields.forEach(transformField);
-    } else if (item.kind === 'switch') {
+    } else if ('switch' in item) { // This is a Switch
       Object.values(item.cases).forEach((c: any) => {
         c.groups.forEach((g: any) => g.fields.forEach(transformField));
       });
@@ -286,7 +285,9 @@ function getTransformedItems() {
       }
     }
   });
-  return stripKind(itemsCopy);
+
+  // Remove the UI-only 'kind' property from each item before returning.
+  return itemsCopy.map(({ kind, ...rest }) => rest);
 }
 
 const preview = computed(() => JSON.stringify({
