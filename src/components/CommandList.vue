@@ -39,7 +39,8 @@
           v-if="editLetter === cmd.letter"
           mode="edit"
           :initial="cmd"
-          @saved="$emit('refresh')"
+          :family="family"
+          @saved="() => { editLetter = null; $emit('refresh'); }"
           @cancel="editLetter = null"
       />
       <CommandViewer
@@ -62,7 +63,10 @@ import CommandViewer from './CommandViewer.vue'
 import AddCommandBuilder from './AddCommandBuilder.vue'
 
 /* props & emits */
-defineProps<{ commands: any[] }>()
+defineProps<{
+  commands: any[],
+  family: object // Pass the whole family object down
+}>()
 const emit = defineEmits(['refresh', 'delete'])
 
 /* collapse state */
@@ -78,10 +82,10 @@ const dialog = useDialog()
 function confirmDelete(cmd: any) {
   dialog.warning({
     title: 'Delete command',
-    content: `Are you sure you want to delete “${cmd.letter}”?`,
+    content: `Are you sure you want to delete command '${cmd.letter}'?`,
     positiveText: 'Delete',
     negativeText: 'Cancel',
-    onPositiveClick: () => emit('delete', cmd)
+    onPositiveClick: () => emit('delete', cmd) // Parent will handle the invoke with family context
   })
 }
 </script>

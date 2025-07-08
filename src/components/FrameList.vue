@@ -33,7 +33,8 @@ import {
   NUpload, NUploadDragger, NList, NListItem, useMessage
 } from "naive-ui";
 import type { UploadFileInfo } from "naive-ui";
-import { ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
+import { invoke } from '@tauri-apps/api/core';
 import { useFrameStore } from "../stores/frameStore";
 import { useSharedDecode } from "../composables/useSharedDecode";
 
@@ -41,8 +42,19 @@ const message = useMessage();
 const store   = useFrameStore();
 const { run } = useSharedDecode();       // shared decoder
 
-/* Dummy list for Naive Upload */
+/* Component State */
 const dummy = ref<UploadFileInfo[]>([]);
+const families = ref<any[]>([]);
+
+/* Fetch families on mount to know valid prefixes */
+onMounted(async () => {
+  try {
+    families.value = await invoke('get_families');
+  } catch (e) {
+    message.error(`Failed to load families: ${e}`);
+  }
+});
+
 
 /* Helpers */
 function extOK(name = "") {
@@ -65,10 +77,22 @@ function validateFile(file: UploadFileInfo) {
 
 async function onFile(info: { file: UploadFileInfo }) {
   const txt = await info.file.file?.text();
+  if (!txt) return;
+
+  const validStarts = families.value.map(f => f.start).filter(Boolean);
+  if (validStarts.length === 0) {
+    message.error("No valid frame families defined in the spec.");
+    return;
+  }
+
   const list =
-      txt?.split(/[\r\n]+/)
+      txt.split(/[\r\n]+/)
           .map((l) => clean(l.trim()))
-          .filter((f) => f.startsWith("<") && f.length) || [];
+          .filter((f) => validStarts.some(start => f.startsWith(start)) && f.length) || [];
+
+  if (list.length === 0) {
+    message.warning("No valid frames found in the file matching the defined families.");
+  }
   store.setFrames(list);
 }
 

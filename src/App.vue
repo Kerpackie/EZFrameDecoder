@@ -46,6 +46,7 @@
 <script setup lang="ts">
 import {
   NConfigProvider,
+  NDialogProvider,
   NMessageProvider,
   NLayout,
   NLayoutHeader,
@@ -54,14 +55,14 @@ import {
   NMenu,
   NIcon
 } from "naive-ui";
-import {h, ref, watch, nextTick} from "vue";
+import {h, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {themeOverrides} from "./theme";
 import {useBreakpoint} from "./composables/useBreakpoint";
 
 import {
-  DocumentTextOutline,
-  AddCircleOutline,
+  CodeSlashOutline,
+  BuildOutline,
   InformationCircleOutline
 } from "@vicons/ionicons5";
 
@@ -71,9 +72,8 @@ const router = useRouter();
 const route = useRoute();
 
 const menuOptions = [
-  {label: "Decode", key: "/", icon: icon(DocumentTextOutline)},
-  {label: "Add Command", key: "/add-command", icon: icon(AddCircleOutline)},
-  {label: "Commands", key: "/edit", icon: icon(DocumentTextOutline)},
+  {label: "Decoder", key: "/", icon: icon(CodeSlashOutline)},
+  {label: "Spec Editor", key: "/spec-editor", icon: icon(BuildOutline)},
   {label: "About", key: "/about", icon: icon(InformationCircleOutline)}
 ];
 
@@ -124,6 +124,17 @@ watch(isMedium, val => (collapsed.value = val));
   height: 100%;
   overflow: auto;
   padding: 1rem;
+  background-color: #f8f9fa; /* Added for visual consistency */
+}
+
+/*
+  FIX: This rule prevents double scrollbars.
+  It forces the root layout of any page loaded via router-view
+  to be constrained to the height of the .main container,
+  overriding problematic styles like `height: 100vh` on the page itself.
+*/
+.main :deep(.n-layout) {
+  height: 100%;
 }
 
 /* Padding for icons */
