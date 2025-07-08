@@ -12,8 +12,8 @@
         <div class="flex justify-between items-center w-full">
           <span>{{ cmd.letter }} — {{ cmd.description || 'no description' }}</span>
 
-          <!-- action buttons -->
-          <div class="flex gap-1">
+          <!-- action buttons (conditionally rendered) -->
+          <div v-if="!readOnly" class="flex gap-1">
             <n-button
                 size="tiny"
                 quaternary
@@ -36,7 +36,7 @@
 
       <!-- ───────── expanded body ───────── -->
       <AddCommandBuilder
-          v-if="editLetter === cmd.letter"
+          v-if="!readOnly && editLetter === cmd.letter"
           mode="edit"
           :initial="cmd"
           :family="family"
@@ -65,7 +65,8 @@ import AddCommandBuilder from './AddCommandBuilder.vue'
 /* props & emits */
 defineProps<{
   commands: any[],
-  family: object // Pass the whole family object down
+  family: object,
+  readOnly?: boolean // New prop to control edit/delete visibility
 }>()
 const emit = defineEmits(['refresh', 'delete'])
 
@@ -85,7 +86,7 @@ function confirmDelete(cmd: any) {
     content: `Are you sure you want to delete command '${cmd.letter}'?`,
     positiveText: 'Delete',
     negativeText: 'Cancel',
-    onPositiveClick: () => emit('delete', cmd) // Parent will handle the invoke with family context
+    onPositiveClick: () => emit('delete', cmd)
   })
 }
 </script>

@@ -55,27 +55,46 @@ import {
   NMenu,
   NIcon
 } from "naive-ui";
-import {h, ref, watch} from "vue";
+import {h, ref, watch, computed} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {themeOverrides} from "./theme";
 import {useBreakpoint} from "./composables/useBreakpoint";
+import { useSettingsStore } from './stores/settingsStore';
 
 import {
   CodeSlashOutline,
   BuildOutline,
-  InformationCircleOutline
+  InformationCircleOutline,
+  EyeOutline,
+  SettingsOutline
 } from "@vicons/ionicons5";
 
 const icon = (comp: any) => () => h(NIcon, null, {default: () => h(comp)});
 
 const router = useRouter();
 const route = useRoute();
+const { isAdvancedMode } = useSettingsStore();
 
-const menuOptions = [
-  {label: "Decoder", key: "/", icon: icon(CodeSlashOutline)},
-  {label: "Spec Editor", key: "/spec-editor", icon: icon(BuildOutline)},
-  {label: "About", key: "/about", icon: icon(InformationCircleOutline)}
-];
+const menuOptions = computed(() => {
+  const standardMenu = [
+    {label: "Decoder", key: "/", icon: icon(CodeSlashOutline)},
+    {label: "View Commands", key: "/view-commands", icon: icon(EyeOutline)},
+  ];
+
+  const advancedMenu = [
+    {label: "Spec Editor", key: "/spec-editor", icon: icon(BuildOutline)},
+  ];
+
+  const commonMenu = [
+    {label: "Settings", key: "/settings", icon: icon(SettingsOutline)},
+    {label: "About", key: "/about", icon: icon(InformationCircleOutline)}
+  ];
+
+  if (isAdvancedMode.value) {
+    return [...standardMenu.slice(0, 1), ...advancedMenu, ...commonMenu];
+  }
+  return [...standardMenu, ...commonMenu];
+});
 
 const active = ref(route.path);
 watch(() => route.path, p => (active.value = p));
@@ -124,20 +143,13 @@ watch(isMedium, val => (collapsed.value = val));
   height: 100%;
   overflow: auto;
   padding: 1rem;
-  background-color: #f8f9fa; /* Added for visual consistency */
+  background-color: #f8f9fa;
 }
 
-/*
-  FIX: This rule prevents double scrollbars.
-  It forces the root layout of any page loaded via router-view
-  to be constrained to the height of the .main container,
-  overriding problematic styles like `height: 100vh` on the page itself.
-*/
 .main :deep(.n-layout) {
   height: 100%;
 }
 
-/* Padding for icons */
 .nav-sider :deep(.n-icon) {
   padding-left: 13px;
 }
