@@ -3,23 +3,27 @@
     windows_subsystem = "windows"
 )]
 
+// ────────────────────────────────────────────────────────────────
+// FULL main.rs — multi‑family backend with legacy default‑spec support
+// ────────────────────────────────────────────────────────────────
+
 mod decoder;
 
-use decoder::{decode, SpecFile};
+use decoder::{decode, Command, Family, SpecFile};
 use once_cell::sync::Lazy;
+use serde_json::Value;
 use std::{fs, path::PathBuf, sync::RwLock};
+use tauri::{Manager};
 use tauri_plugin_fs::init as fs_plugin;
 use dirs_next::config_dir;
-use crate::decoder::Command;
 
-/* ───────────── constants ───────────── */
+/* ─────────── Constants & Embedded Default ─────────── */
 const APP_DIR: &str = "EZFrameDecoder";
 const USER_SPEC_FILE: &str = "spec_override.json";
-
-/* Bundled default, embedded at compile-time */
+// The file bundled at compile‑time — still called spec_full.json but in new schema
 const DEFAULT_SPEC: &str = include_str!("../resources/spec_full.json");
 
-/* ───── copy default to user folder if missing ───── */
+/* ─────────── ensure + load helpers ─────────── */
 fn ensure_user_spec() -> std::io::Result<PathBuf> {
     let user_path = config_dir()
         .ok_or(std::io::ErrorKind::NotFound)?
@@ -37,7 +41,6 @@ fn ensure_user_spec() -> std::io::Result<PathBuf> {
     Ok(user_path)
 }
 
-/* ───── load (or reload) spec from disk ───── */
 fn load_spec_from_disk() -> Result<SpecFile, Box<dyn std::error::Error>> {
     let path = ensure_user_spec()?;
     let text = fs::read_to_string(&path)?;
@@ -45,206 +48,223 @@ fn load_spec_from_disk() -> Result<SpecFile, Box<dyn std::error::Error>> {
     Ok(spec)
 }
 
-/* ───── shared, hot-swappable spec instance ───── */
+/* ─────────── live, hot‑reloadable spec instance ─────────── */
 static SPEC: Lazy<RwLock<SpecFile>> =
     Lazy::new(|| RwLock::new(load_spec_from_disk().expect("load spec")));
 
-/* ───────────── Tauri commands ───────────── */
-
-fn clean_frame(line: &str) -> &str {
-    line.split_whitespace().next().unwrap_or("")
-}
-
-#[tauri::command]
-fn decode_frame(frame: String) -> Result<serde_json::Value, String> {
-    let cleaned = clean_frame(&frame);
-    if !cleaned.starts_with('<') {
-        return Err("Line does not start with '<'".into());
-    }
-    let spec = SPEC.read().unwrap();
-    decode(cleaned, &*spec).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn batch_decode(text: String) -> Result<Vec<serde_json::Value>, String> {
-    let spec = SPEC.read().unwrap();
-    text.lines()
-        .filter_map(|raw| {
-            let cleaned = clean_frame(raw.trim());
-            if cleaned.starts_with('<') && !cleaned.is_empty() {
-                Some(
-                    decode(cleaned, &*spec)
-                        .map_err(|e| e.to_string())
-                )
-            } else {
-                None // skip non-frame lines
-            }
-        })
-        .collect()
-}
-
-#[tauri::command]
+/* ─────────── internal helpers ─────────── */
 fn reload_spec() -> Result<(), String> {
     let mut spec_lock = SPEC.write().unwrap();
     *spec_lock = load_spec_from_disk().map_err(|e| e.to_string())?;
     Ok(())
 }
 
-#[tauri::command]
-fn append_command(new_cmd: serde_json::Value) -> Result<(), String> {
-    use serde_json::Value;
-
-    // Load override file
+fn mutating_spec<F>(op: F) -> Result<(), String>
+where
+    F: FnOnce(&mut SpecFile) -> Result<(), String>,
+{
     let path = ensure_user_spec().map_err(|e| e.to_string())?;
-    let mut spec: Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-
-    let commands = spec
-        .get_mut("commands")
-        .and_then(|v| v.as_array_mut())
-        .ok_or("Malformed spec: 'commands' not array")?;
-
-    /* -------------------------------------------------- */
-    /* Case 1 – new top-level command                     */
-    /* -------------------------------------------------- */
-    if new_cmd.get("items").is_some() {
-        let letter = new_cmd
-            .get("letter")
-            .and_then(|v| v.as_str())
-            .ok_or("missing letter")?;
-
-        if commands
-            .iter()
-            .any(|c| c.get("letter").and_then(|v| v.as_str()) == Some(letter))
-        {
-            return Err(format!(
-                "Command with letter '{}' already exists. Use sub-command mode.",
-                letter
-            ));
-        }
-
-        commands.push(new_cmd);
-    }
-    /* -------------------------------------------------- */
-    /* Case 2 – merge into existing switch                */
-    /* new_cmd must have { letter, switch_key, switch_case, case } */
-    /* -------------------------------------------------- */
-    else {
-        let letter       = new_cmd["letter"].as_str().ok_or("missing letter")?;
-        let switch_key   = new_cmd["switch_key"]
-            .as_str()
-            .unwrap_or("Opcode");
-        let switch_case  = new_cmd["switch_case"]
-            .as_str()
-            .ok_or("missing switch_case")?;
-        let case_obj     = new_cmd["case"].clone();
-
-        let cmd = commands
-            .iter_mut()
-            .find(|c| c["letter"] == letter)
-            .ok_or("Base command not found")?;
-
-        let switch_item = cmd["items"]
-            .as_array_mut()
-            .ok_or("items not array")?
-            .iter_mut()
-            .find(|it| it.get("switch").and_then(|v| v.as_str()) == Some(switch_key))
-            .ok_or("No switch with that key")?;
-
-        let cases = switch_item["cases"]
-            .as_object_mut()
-            .ok_or("cases not object")?;
-
-        if cases.contains_key(switch_case) {
-            return Err("That switch_case already exists".into());
-        }
-
-        cases.insert(switch_case.to_string(), case_obj);
-    }
-
-    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
+    let mut spec: SpecFile = serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
-
-    // Hot-reload
+    op(&mut spec)?;
+    fs::write(&path, serde_json::to_string_pretty(&spec).unwrap()).map_err(|e| e.to_string())?;
     reload_spec()?;
     Ok(())
 }
 
-#[tauri::command]
-fn get_commands() -> Result<Vec<serde_json::Value>, String> {
-    let spec = SPEC.read().unwrap();
+fn clean_frame(line: &str) -> &str {
+    line.split_whitespace().next().unwrap_or("")
+}
 
-    spec.commands
-        .iter()
-        .map(|c| serde_json::to_value(c).map_err(|e| e.to_string()))
+/// Validates a family's core properties.
+fn validate_family_properties(fam: &Family) -> Result<(), String> {
+    if fam.name.trim().is_empty() {
+        return Err("Family name cannot be empty.".into());
+    }
+    if fam.start.trim().is_empty() {
+        return Err("Family start character cannot be empty.".into());
+    }
+    if fam.terminator.trim().is_empty() {
+        return Err("Family terminator cannot be empty.".into());
+    }
+    if fam.start == fam.terminator {
+        return Err("Family start and terminator cannot be the same.".into());
+    }
+    Ok(())
+}
+
+/* ─────────── Tauri commands ─────────── */
+#[tauri::command]
+fn decode_frame(frame: String) -> Result<Value, String> {
+    let trimmed = clean_frame(&frame);
+    if trimmed.is_empty() {
+        return Err("Empty line".into());
+    }
+    let spec = SPEC.read().unwrap();
+    decode(trimmed, &*spec).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn batch_decode(text: String) -> Result<Vec<Value>, String> {
+    let spec = SPEC.read().unwrap();
+    text.lines()
+        .filter_map(|raw| {
+            let cleaned = clean_frame(raw.trim());
+            if cleaned.is_empty() {
+                None
+            } else {
+                Some(decode(cleaned, &*spec).map_err(|e| e.to_string()))
+            }
+        })
         .collect()
 }
 
+// ─────────── Family CRUD ───────────
 #[tauri::command]
-fn update_command(updated_cmd: serde_json::Value) -> Result<(), String> {
-    let letter = updated_cmd["letter"].as_str().ok_or("No letter")?;
-    let path = ensure_user_spec().map_err(|e| e.to_string())?;
-    let mut spec: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-
-    let cmds = spec
-        .get_mut("commands")
-        .and_then(|v| v.as_array_mut())
-        .ok_or("Bad spec")?;
-
-    if let Some(slot) = cmds.iter_mut().find(|c| c["letter"] == letter) {
-        *slot = updated_cmd;
-    } else {
-        return Err("Command not found".into());
-    }
-
-    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
-        .map_err(|e| e.to_string())?;
-    reload_spec()?;
-    Ok(())
+fn get_families() -> Result<Vec<Family>, String> {
+    Ok(SPEC.read().unwrap().families.clone())
 }
 
 #[tauri::command]
-fn delete_command(letter: String) -> Result<(), String> {
-    let path = ensure_user_spec().map_err(|e| e.to_string())?;
-    let mut spec: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-
-    let cmds = spec
-        .get_mut("commands")
-        .and_then(|v| v.as_array_mut())
-        .ok_or("Bad spec")?;
-
-    let before = cmds.len();
-    cmds.retain(|c| c["letter"] != letter);
-    if cmds.len() == before {
-        return Err("Letter not found".into());
-    }
-
-    std::fs::write(&path, serde_json::to_string_pretty(&spec).unwrap())
-        .map_err(|e| e.to_string())?;
-    reload_spec()?;
-    Ok(())
+fn create_family(fam: Family) -> Result<(), String> {
+    mutating_spec(|spec| {
+        validate_family_properties(&fam)?;
+        if spec.families.iter().any(|f| f.start == fam.start) {
+            return Err("A family with that start character already exists".into());
+        }
+        spec.families.push(fam);
+        Ok(())
+    })
 }
 
+#[tauri::command]
+fn update_family(original_start: String, fam: Family) -> Result<(), String> {
+    mutating_spec(|spec| {
+        validate_family_properties(&fam)?;
+        // If the start character was changed, check if the new one conflicts with any *other* family.
+        if original_start != fam.start && spec.families.iter().any(|f| f.start == fam.start) {
+            return Err("Another family with the new start character already exists.".into());
+        }
 
-/* ─────────────── main entry ─────────────── */
+        let slot = spec
+            .families
+            .iter_mut()
+            .find(|f| f.start == original_start)
+            .ok_or("Family to update not found (using original start char).")?;
 
+        *slot = fam;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+fn delete_family(start: String) -> Result<(), String> {
+    mutating_spec(|spec| {
+        let before = spec.families.len();
+        spec.families.retain(|f| f.start != start);
+        if spec.families.len() == before {
+            return Err("Family not found".into());
+        }
+        Ok(())
+    })
+}
+
+// ─────────── Command CRUD (scoped to family) ───────────
+#[tauri::command]
+fn get_commands(family_start: String) -> Result<Vec<Command>, String> {
+    let spec = SPEC.read().unwrap();
+    let fam = spec
+        .families
+        .iter()
+        .find(|f| f.start == family_start)
+        .ok_or("Family not found")?;
+    Ok(fam.commands.clone())
+}
+
+#[tauri::command]
+fn append_command(family_start: String, cmd: Command) -> Result<(), String> {
+    mutating_spec(|spec| {
+        let fam = spec
+            .families
+            .iter_mut()
+            .find(|f| f.start == family_start)
+            .ok_or("Family not found")?;
+        if cmd.letter.trim().is_empty() {
+            return Err("Command letter cannot be empty.".into());
+        }
+        if fam.commands.iter().any(|c| c.letter == cmd.letter) {
+            return Err("Command letter already present in this family".into());
+        }
+        fam.commands.push(cmd);
+        Ok(())
+    })
+}
+
+#[tauri::command]
+fn update_command(family_start: String, original_letter: String, cmd: Command) -> Result<(), String> {
+    mutating_spec(|spec| {
+        let fam = spec
+            .families
+            .iter_mut()
+            .find(|f| f.start == family_start)
+            .ok_or("Family not found")?;
+
+        if cmd.letter.trim().is_empty() {
+            return Err("Command letter cannot be empty.".into());
+        }
+
+        // If the letter was changed, check for conflicts with other commands in the same family.
+        if original_letter != cmd.letter && fam.commands.iter().any(|c| c.letter == cmd.letter) {
+            return Err("Another command with that letter already exists in this family.".into());
+        }
+
+        let slot = fam
+            .commands
+            .iter_mut()
+            .find(|c| c.letter == original_letter)
+            .ok_or("Command to update not found (using original letter).")?;
+
+        *slot = cmd;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+fn delete_command(family_start: String, letter: String) -> Result<(), String> {
+    mutating_spec(|spec| {
+        let fam = spec
+            .families
+            .iter_mut()
+            .find(|f| f.start == family_start)
+            .ok_or("Family not found")?;
+        let before = fam.commands.len();
+        fam.commands.retain(|c| c.letter != letter);
+        if fam.commands.len() == before {
+            return Err("Command not found".into());
+        }
+        Ok(())
+    })
+}
+
+/* ─────────── Application entry point ─────────── */
 fn main() {
     tauri::Builder::default()
-        .plugin(fs_plugin()) // keeps file-dialog APIs available
+        .plugin(fs_plugin())
         .invoke_handler(tauri::generate_handler![
+            // Decode
             decode_frame,
             batch_decode,
-            reload_spec,
-            append_command,
+            // Family CRUD
+            get_families,
+            create_family,
+            update_family,
+            delete_family,
+            // Command CRUD
             get_commands,
+            append_command,
             update_command,
-            delete_command
+            delete_command,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Tauri app");
+        .expect("error while running Tauri application");
 }

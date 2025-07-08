@@ -63,7 +63,7 @@
       </ul>
     </n-alert>
 
-    <n-text depth="3" class="mb-2">Remaining hex chars: {{ remaining }}</n-text>
+    <n-text depth="3" class="mb-2">Total field length: {{ total }} / {{ expectedFieldLength }} hex chars</n-text>
     <n-code :code="preview" language="json" class="mb-4"/>
 
     <n-button type="primary" @click="submit" :disabled="errors.length">
@@ -89,6 +89,7 @@ import SwitchEditor from './SwitchEditor.vue'
 const props = defineProps({
   mode: {type: String, default: 'create'}, // create | edit
   initial: {type: Object, default: null},
+  family: { type: Object, required: true }, // The entire family object is needed for validation
   existingLetters: {type: Array, default: () => []}
 })
 const emit = defineEmits(['saved', 'cancel'])
@@ -97,15 +98,10 @@ const msg = useMessage()
 /* ---------- util ---------- */
 const deepCopy = (o: any) => JSON.parse(JSON.stringify(o ?? {}))
 
+// This function is no longer needed as the backend handles type coercion.
+// We keep the structure for potential future frontend-only logic.
 function normaliseField(f: any) {
-  if (typeof f.type === 'string' && f.type.startsWith('u')) {
-    const lenMap = {u8: 2, u16: 4, u24: 6, u32: 8, u64: 16}
-    f.type = 'number'
-    if (f.len == null || isNaN(f.len)) {
-      const def = lenMap[f.type as keyof typeof lenMap]
-      if (def) f.len = def
-    }
-  }
+  // No-op, backend handles types.
 }
 
 /* ---------- normalise items (kind + field conversion) ---------- */
@@ -146,7 +142,7 @@ function blankCommand() {
             name: 'RSAddress',
             len: 2,
             base: 16,
-            type: 'number',
+            typ: 'u8', // Use backend types
             description: 'Device address on bus'
           }
         ]
@@ -159,7 +155,7 @@ function blankCommand() {
             name: 'field-1',
             len: 2,
             base: 16,
-            type: 'number',
+            typ: 'u8', // Use backend types
             description: ''
           }
         ]
@@ -173,7 +169,7 @@ const cmd = ref(
     props.mode === 'edit'
         ? (() => {
           const c = deepCopy(props.initial)
-          normalise(c.items)     // <-- convert u8/u16 → number+len
+          normalise(c.items)
           return c
         })()
         : blankCommand()
@@ -182,12 +178,12 @@ const cmd = ref(
 /* ---------- header field list ---------- */
 const headerFields = computed(() => cmd.value.items[0]?.fields?.map((f: any) => f.name) ?? [])
 
-/* ---------- add items (unchanged) ---------- */
+/* ---------- add items ---------- */
 function addItem(kind: 'group' | 'switch') {
   if (kind === 'group') {
     cmd.value.items.push({
       kind: 'group', name: 'Group',
-      fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}]
+      fields: [{name: 'field-1', len: 2, base: 16, typ: 'u8', description: ''}]
     })
   } else {
     const header = headerFields.value.find(n => n !== 'RSAddress') || headerFields.value[0] || ''
@@ -199,7 +195,7 @@ function addItem(kind: 'group' | 'switch') {
           description: '',
           groups: [{
             name: 'Group',
-            fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}]
+            fields: [{name: 'field-1', len: 2, base: 16, typ: 'u8', description: ''}]
           }]
         }
       },
@@ -208,15 +204,22 @@ function addItem(kind: 'group' | 'switch') {
   }
 }
 
-/* ---------- validation (unchanged except bool len=1 rule kept) ---------- */
-const LEN_MAP = {2: 'u8', 4: 'u16', 6: 'u24', 8: 'u32', 16: 'u64'} as const
-const MAX = 21, MIN = 18
+/* ---------- validation ---------- */
+const expectedFieldLength = computed(() => {
+  // Total frame length minus start, terminator, and the command letter itself.
+  if (!props.family) return 0;
+  const commandLetterLength = 1;
+  return props.family.frame_len - props.family.start.length - props.family.terminator.length - commandLetterLength;
+});
+
 
 function effectiveFields(): any[] {
   const out: any[] = []
   cmd.value.items.forEach((it: any) => {
     if (it.kind === 'group') out.push(...it.fields)
     else {
+      // For validation, we can check the length of the first variant's fields as a representative.
+      // A more complex validation could ensure all variants have the same length.
       const firstCase: any = Object.values(it.cases)[0]
       const variant: any = firstCase ?? it.default
       variant && variant.groups.forEach((g: any) => out.push(...g.fields))
@@ -226,7 +229,6 @@ function effectiveFields(): any[] {
 }
 
 const total = computed(() => effectiveFields().reduce((s, f) => s + f.len, 0))
-const remaining = computed(() => MAX - total.value)
 
 const errors = computed(() => {
   const e: string[] = []
@@ -236,7 +238,7 @@ const errors = computed(() => {
       props.mode === 'create' &&
       props.existingLetters.includes(cmd.value.letter)
   ) {
-    e.push(`Letter ${cmd.value.letter} already exists`)
+    e.push(`Letter ${cmd.value.letter} already exists in this family.`)
   }
 
   /* per-group duplicate & per-field rules */
@@ -253,23 +255,17 @@ const errors = computed(() => {
       const seen = new Set<string>()
       g.fields.forEach((f: any) => {
         const id = f.name.trim().toLowerCase()
-        if (!id) e.push('Unnamed field')
+        if (!id) e.push('A field name cannot be empty.')
         if (seen.has(id))
-          e.push(`Duplicate field "${f.name}" in "${g.name}"`)
+          e.push(`Duplicate field "${f.name}" in group "${g.name}".`)
         seen.add(id)
-
-        /* ---- length/type rules ---- */
-        if (f.type === 'bool' && f.len !== 1)
-          e.push(`Bool "${f.name}" must have len = 1`)
-        if (f.type === 'number' && (f.len < 1 || f.len > 16))
-          e.push(`Len ${f.len} invalid (must be 1-16)`)
       })
     })
   })
 
   /* effective-length rule */
-  if (total.value < MIN || total.value > MAX)
-    e.push(`Frame len ${total.value} not ${MIN}-${MAX}`)
+  if (total.value !== expectedFieldLength.value)
+    e.push(`Total length of all fields must be exactly ${expectedFieldLength.value} characters.`)
 
   return e
 })
@@ -281,21 +277,33 @@ const preview = computed(() => JSON.stringify({
   items: stripKind(cmd.value.items)
 }, null, 2))
 
-/* ---------- submit / reset (unchanged) ---------- */
+/* ---------- submit / reset ---------- */
 async function submit() {
   if (errors.value.length) {
-    msg.error('Fix validation errors');
+    msg.error('Please fix validation errors before submitting.');
     return
   }
   const payload = JSON.parse(preview.value)
-  if (props.mode === 'edit') {
-    await invoke('update_command', {updatedCmd: payload})
-    msg.success('Saved')
-  } else {
-    await invoke('append_command', {newCmd: payload})
-    msg.success('Created')
+  try {
+    if (props.mode === 'edit') {
+      await invoke('update_command', {
+        familyStart: props.family.start,
+        originalLetter: props.initial.letter, // Pass the original letter for lookup
+        cmd: payload
+      })
+      msg.success(`Command '${payload.letter}' saved successfully.`)
+    } else {
+      await invoke('append_command', {
+        familyStart: props.family.start,
+        cmd: payload
+      })
+      msg.success(`Command '${payload.letter}' created successfully.`)
+    }
+    emit('saved', payload)
+  } catch (err) {
+    msg.error(String(err));
+    console.error(err);
   }
-  emit('saved', payload)
 }
 
 function reset() {
@@ -306,7 +314,7 @@ function reset() {
 watch(() => props.initial, nv => {
   if (props.mode === 'edit' && nv) {
     const c = deepCopy(nv)
-    normalise(c.items)          // <-- ensure fresh load is normalised
+    normalise(c.items)
     cmd.value = c
   }
 })
