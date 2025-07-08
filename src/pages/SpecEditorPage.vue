@@ -10,7 +10,7 @@
         v-model:collapsed="siderCollapsed"
     >
       <div class="sider-content" v-if="!siderCollapsed">
-        <n-h4 style="padding: 0 16px; flex-shrink: 0;">Command Families</n-h4>
+        <n-h4 class="sider-header">Command Families</n-h4>
         <n-menu
             :options="familyMenuOptions"
             :value="selectedFamily?.start"
@@ -47,7 +47,7 @@
           </n-space>
         </div>
 
-        <n-tabs type="line" animated v-model:value="activeTab">
+        <n-tabs type="line" animated v-model:value="activeTab" :pane-style="{ paddingTop: '12px' }">
           <n-tab-pane name="commands" tab="Commands">
             <CommandList
                 :commands="commands"
@@ -82,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue';
+import { ref, onMounted, computed} from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import {
   NLayout, NLayoutSider, NLayoutContent, NMenu, NButton, NSpace,
@@ -93,21 +93,17 @@ import CommandList from '../components/CommandList.vue';
 import AddCommandBuilder from '../components/AddCommandBuilder.vue';
 import FamilyEditor from '../components/FamilyEditor.vue';
 
-// --- State ---
 const isLoading = ref(true);
 const families = ref<any[]>([]);
 const selectedFamily = ref<any | null>(null);
 const commands = ref<any[]>([]);
 const activeTab = ref('commands');
 const siderCollapsed = ref(false);
-
-// --- Modals & Dialogs ---
 const msg = useMessage();
 const dialog = useDialog();
 const showFamilyEditor = ref(false);
 const editingFamily = ref<any | null>(null);
 
-// --- Computed Properties ---
 const familyMenuOptions = computed(() =>
     families.value.map(f => ({
       label: f.name,
@@ -117,7 +113,6 @@ const familyMenuOptions = computed(() =>
 
 const existingLetters = computed(() => commands.value.map(c => c.letter));
 
-// --- Data Fetching ---
 async function fetchFamilies() {
   try {
     isLoading.value = true;
@@ -147,7 +142,6 @@ async function fetchCommands() {
   }
 }
 
-// --- Event Handlers ---
 async function handleFamilySelect(key: string) {
   selectedFamily.value = families.value.find(f => f.start === key) || null;
   activeTab.value = 'commands';
@@ -202,7 +196,6 @@ async function handleCommandSaved() {
   activeTab.value = 'commands';
 }
 
-// --- Lifecycle ---
 onMounted(() => {
   fetchFamilies();
 });
@@ -211,12 +204,16 @@ onMounted(() => {
 <style scoped>
 .spec-editor-layout {
   height: 100%;
-  overflow: hidden; /* Prevent scrollbars on the layout itself */
+  overflow: hidden;
 }
 .sider-content {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+.sider-header {
+  padding: 1rem 1rem 0.5rem 1rem;
+  flex-shrink: 0;
 }
 .sider-footer {
   padding: 16px;
@@ -224,11 +221,9 @@ onMounted(() => {
 }
 .main-content {
   padding: 24px;
-  background-color: #f8f9fa;
-  overflow-y: auto; /* Allow content to scroll, not the whole page */
+  overflow-y: auto;
 }
 .content-wrapper {
-  background-color: #fff;
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
@@ -238,8 +233,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  flex-wrap: wrap; /* Allow header content to wrap on small screens */
-  gap: 1rem; /* Add space when wrapping */
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 .centered-message {
   display: flex;

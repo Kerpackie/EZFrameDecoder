@@ -44,14 +44,21 @@ watch(isMedium, val => {
 
 .cmd-sider {
   transition: width 0.3s ease;
-  background-color: #f8f9fa;
+  /* FIX: Apply border-radius to the correct corners */
+  border-radius: 0 8px 8px 0;
+}
+
+.cmd-sider :deep(.n-layout-sider-content) {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .decode-main {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 0 1rem;
+  padding: 1rem;
 }
 
 .result {

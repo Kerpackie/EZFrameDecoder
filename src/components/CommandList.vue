@@ -5,11 +5,11 @@
         v-for="cmd in commands"
         :key="cmd.letter"
         :name="cmd.letter"
-        class="mb-1"
+        class="command-flyout"
     >
       <!-- ───────── header row ───────── -->
       <template #header>
-        <div class="flex justify-between items-center w-full">
+        <div class="flex justify-between items-center w-full pl-1">
           <span>{{ cmd.letter }} — {{ cmd.description || 'no description' }}</span>
 
           <!-- action buttons (conditionally rendered) -->
@@ -35,18 +35,20 @@
       </template>
 
       <!-- ───────── expanded body ───────── -->
-      <AddCommandBuilder
-          v-if="!readOnly && editLetter === cmd.letter"
-          mode="edit"
-          :initial="cmd"
-          :family="family"
-          @saved="() => { editLetter = null; $emit('refresh'); }"
-          @cancel="editLetter = null"
-      />
-      <CommandViewer
-          v-else
-          :command="cmd"
-      />
+      <div class="command-content">
+        <AddCommandBuilder
+            v-if="!readOnly && editLetter === cmd.letter"
+            mode="edit"
+            :initial="cmd"
+            :family="family"
+            @saved="() => { editLetter = null; $emit('refresh'); }"
+            @cancel="editLetter = null"
+        />
+        <CommandViewer
+            v-else
+            :command="cmd"
+        />
+      </div>
     </n-collapse-item>
   </n-collapse>
 </template>
@@ -66,7 +68,7 @@ import AddCommandBuilder from './AddCommandBuilder.vue'
 defineProps<{
   commands: any[],
   family: object,
-  readOnly?: boolean // New prop to control edit/delete visibility
+  readOnly?: boolean
 }>()
 const emit = defineEmits(['refresh', 'delete'])
 
@@ -90,3 +92,15 @@ function confirmDelete(cmd: any) {
   })
 }
 </script>
+
+<style scoped>
+.command-flyout {
+  margin-bottom: 0.5rem;
+}
+.command-flyout :deep(.n-collapse-item__header) {
+  border-radius: 6px;
+}
+.command-content {
+  padding-top: 12px;
+}
+</style>
