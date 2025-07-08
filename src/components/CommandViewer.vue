@@ -20,7 +20,7 @@
     <!-- ── switch ── -->
     <template v-else>
       <n-h5 class="mt-0 mb-1">
-        Switch on <code>{{ item.switch }}</code>
+        Switch on <n-tag type="info" size="small" bordered>{{ item.switch }}</n-tag>
       </n-h5>
 
       <n-collapse size="small" class="ml-2">
@@ -73,10 +73,5 @@ defineProps<{ command: any }>()
 </script>
 
 <style scoped>
-code {
-  background:#f2f2f2;
-  padding:0 3px;
-  border-radius:3px;
-  font-family:monospace;
-}
+
 </style>

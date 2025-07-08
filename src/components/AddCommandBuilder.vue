@@ -1,82 +1,89 @@
 <template>
-  <n-card embedded>
-    <n-h3 class="m-0">
-      {{ mode === 'edit' ? `Edit Command ${cmd.letter}` : 'New Command Builder' }}
-    </n-h3>
+  <n-space vertical size="large">
+    <n-card embedded>
+      <n-h3 class="m-0">
+        {{ mode === 'edit' ? `Edit Command ${cmd.letter}` : 'New Command Builder' }}
+      </n-h3>
 
-    <!-- 1 ── meta -->
-    <n-form :model="cmd" label-width="120" class="mb-5">
-      <n-form-item label="Letter">
-        <n-input
-            v-model:value="cmd.letter"
-            maxlength="1"
-            placeholder="A-Z"
-            :disabled="mode === 'edit'"
-        />
-      </n-form-item>
-      <n-form-item label="Description">
-        <n-input v-model:value="cmd.description"/>
-      </n-form-item>
-    </n-form>
+      <!-- 1 ── meta -->
+      <n-form :model="cmd" label-width="120" class="mt-4">
+        <n-form-item label="Letter">
+          <n-input
+              v-model:value="cmd.letter"
+              maxlength="1"
+              placeholder="A-Z"
+              :disabled="mode === 'edit'"
+          />
+        </n-form-item>
+        <n-form-item label="Description">
+          <n-input v-model:value="cmd.description"/>
+        </n-form-item>
+      </n-form>
+    </n-card>
 
-    <!-- 2 ── add buttons -->
-    <n-button-group class="mb-4">
+    <n-button-group>
       <n-button @click="addItem('group')">+ Add Group</n-button>
       <n-button @click="addItem('switch')">+ Add Switch</n-button>
     </n-button-group>
 
     <!-- 3 ── items -->
-    <div v-for="(item, idx) in cmd.items" :key="idx" class="mb-3 item-block">
-      <!-- GROUP -->
-      <n-card
-          v-if="item.kind === 'group'"
-          size="small"
-          :title="item.name || 'Group'"
-          :closable="idx !== 0"
-          @close="idx !== 0 && cmd.items.splice(idx, 1)"
-      >
-        <n-form label-width="110" class="mb-3">
-          <n-form-item label="Group name">
-            <n-input v-model:value="item.name" :disabled="idx === 0"/>
-          </n-form-item>
-        </n-form>
+    <n-space vertical size="large">
+      <div v-for="(item, idx) in cmd.items" :key="idx" class="item-block">
+        <!-- GROUP -->
+        <n-card
+            v-if="item.kind === 'group'"
+            size="small"
+            :title="item.name || 'Group'"
+            :closable="idx !== 0"
+            @close="idx !== 0 && cmd.items.splice(idx, 1)"
+        >
+          <n-form label-width="110" class="mb-3">
+            <n-form-item label="Group name">
+              <n-input v-model:value="item.name" :disabled="idx === 0"/>
+            </n-form-item>
+          </n-form>
 
-        <FieldEditor
-            v-model:fields="item.fields"
-            :locked-names="idx === 0 ? ['RSAddress'] : []"
+          <FieldEditor
+              v-model:fields="item.fields"
+              :locked-names="idx === 0 ? ['RSAddress'] : []"
+          />
+        </n-card>
+
+        <!-- SWITCH -->
+        <SwitchEditor
+            v-else
+            :item="item"
+            :header-fields="headerFields"
+            :onRemove="() => cmd.items.splice(idx, 1)"
         />
-      </n-card>
-
-      <!-- SWITCH -->
-      <SwitchEditor
-          v-else
-          :item="item"
-          :header-fields="headerFields"
-          :onRemove="() => cmd.items.splice(idx, 1)"
-      />
-    </div>
+      </div>
+    </n-space>
 
     <!-- 4 ── validation & preview -->
-    <n-alert v-if="errors.length" type="error" class="mb-3">
-      <ul style="padding-left:20px;margin:0">
-        <li v-for="err in errors" :key="err">{{ err }}</li>
-      </ul>
-    </n-alert>
+    <n-space vertical>
+      <n-alert v-if="errors.length" type="error" class="mb-3">
+        <ul style="padding-left:20px;margin:0">
+          <li v-for="err in errors" :key="err">{{ err }}</li>
+        </ul>
+      </n-alert>
 
-    <n-text depth="3" class="mb-2">Total field length: {{ total }} / {{ minFieldLength }}-{{ maxFieldLength }} hex chars</n-text>
-    <n-code :code="preview" language="json" class="mb-4"/>
+      <n-text depth="3" class="mb-2">Total field length: {{ total }} / {{ minFieldLength }}-{{ maxFieldLength }} hex chars</n-text>
+      <n-code :code="preview" language="json" class="mb-4"/>
 
-    <n-button type="primary" @click="submit" :disabled="errors.length">
-      {{ mode === 'edit' ? 'Save' : 'Submit' }}
-    </n-button>
-    <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
-    <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
-  </n-card>
+      <div>
+        <n-button type="primary" @click="submit" :disabled="errors.length">
+          {{ mode === 'edit' ? 'Save' : 'Submit' }}
+        </n-button>
+        <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
+        <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
+      </div>
+    </n-space>
+  </n-space>
 </template>
 
 <script setup lang="ts">
 import {
-  NCard, NForm, NFormItem, NInput,
+  NCard, NForm, NFormItem, NInput, NSpace,
   NButton, NButtonGroup, NAlert,
   NText, NCode, useMessage
 } from 'naive-ui'
@@ -85,24 +92,18 @@ import {invoke} from '@tauri-apps/api/core'
 import FieldEditor from './FieldEditor.vue'
 import SwitchEditor from './SwitchEditor.vue'
 
-/* ---------- props ---------- */
 const props = defineProps({
-  mode: {type: String, default: 'create'}, // create | edit
+  mode: {type: String, default: 'create'},
   initial: {type: Object, default: null},
-  family: { type: Object, required: true }, // The entire family object is needed for validation
+  family: { type: Object, required: true },
   existingLetters: {type: Array, default: () => []}
 })
 const emit = defineEmits(['saved', 'cancel'])
 const msg = useMessage()
-
-/* ---------- util ---------- */
 const deepCopy = (o: any) => JSON.parse(JSON.stringify(o ?? {}))
 
-function normaliseField(f: any) {
-  // No-op, backend handles types.
-}
+function normaliseField(f: any) {}
 
-/* ---------- normalise items (kind + field conversion) ---------- */
 function normalise(items: any[]) {
   items.forEach((it: any) => {
     if ('fields' in it) {
@@ -121,12 +122,6 @@ function normalise(items: any[]) {
   })
 }
 
-/* ---------- strip helper ---------- */
-function stripKind(items: any[]) {
-  return items.map(({kind, ...r}: any) => r)
-}
-
-/* ---------- blank template ---------- */
 function blankCommand() {
   return {
     letter: '',
@@ -140,7 +135,7 @@ function blankCommand() {
             name: 'RSAddress',
             len: 2,
             base: 16,
-            type: 'number', // CORRECTED: Use 'type' for UI binding
+            type: 'number',
             description: 'Device address on bus'
           }
         ]
@@ -153,7 +148,7 @@ function blankCommand() {
             name: 'field-1',
             len: 2,
             base: 16,
-            type: 'number', // CORRECTED: Use 'type' for UI binding
+            type: 'number',
             description: ''
           }
         ]
@@ -162,7 +157,6 @@ function blankCommand() {
   }
 }
 
-/* ---------- state ---------- */
 const cmd = ref(
     props.mode === 'edit'
         ? (() => {
@@ -173,15 +167,13 @@ const cmd = ref(
         : blankCommand()
 )
 
-/* ---------- header field list ---------- */
 const headerFields = computed(() => cmd.value.items[0]?.fields?.map((f: any) => f.name) ?? [])
 
-/* ---------- add items ---------- */
 function addItem(kind: 'group' | 'switch') {
   if (kind === 'group') {
     cmd.value.items.push({
       kind: 'group', name: 'Group',
-      fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}] // CORRECTED: Use 'type'
+      fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}]
     })
   } else {
     const header = headerFields.value.find(n => n !== 'RSAddress') || headerFields.value[0] || ''
@@ -193,7 +185,7 @@ function addItem(kind: 'group' | 'switch') {
           description: '',
           groups: [{
             name: 'Group',
-            fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}] // CORRECTED: Use 'type'
+            fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}]
           }]
         }
       },
@@ -202,7 +194,6 @@ function addItem(kind: 'group' | 'switch') {
   }
 }
 
-/* ---------- validation ---------- */
 const minFieldLength = computed(() => {
   if (!props.family) return 0;
   const commandLetterLength = 1;
@@ -235,11 +226,9 @@ const total = computed(() => effectiveFields().reduce((s, f) => s + f.len, 0))
 
 const errors = computed(() => {
   const e: string[] = []
-
   if (props.mode === 'create' && props.existingLetters.includes(cmd.value.letter)) {
     e.push(`Letter ${cmd.value.letter} already exists in this family.`)
   }
-
   cmd.value.items.forEach((it: any) => {
     const groups =
         it.kind === 'group'
@@ -248,7 +237,6 @@ const errors = computed(() => {
               ...Object.values(it.cases).flatMap((v: any) => v.groups),
               ...(it.default?.groups ?? [])
             ]
-
     groups.forEach((g: any) => {
       const seen = new Set<string>()
       g.fields.forEach((f: any) => {
@@ -260,39 +248,35 @@ const errors = computed(() => {
       })
     })
   })
-
   if (total.value < minFieldLength.value || total.value > maxFieldLength.value) {
     e.push(`Total field length must be between ${minFieldLength.value} and ${maxFieldLength.value} characters.`)
   }
-
   return e
 })
 
-/* ---------- preview & submission payload ---------- */
+// --- CORRECTED PAYLOAD TRANSFORMATION ---
 function getTransformedItems() {
-  // Create a deep copy to avoid mutating the reactive UI state `cmd`
   const itemsCopy = deepCopy(cmd.value.items);
 
   const lenToTypeMap: { [key: number]: string } = {
-    2: 'u8',
-    4: 'u16',
-    6: 'u24',
-    8: 'u32',
-    16: 'u64'
+    2: 'u8', 4: 'u16', 6: 'u24', 8: 'u32', 16: 'u64'
   };
 
   const transformField = (field: any) => {
+    // The UI state uses `field.type` which is 'number' or 'bool'.
+    // We need to transform this into the specific string the backend expects.
     if (field.type === 'number') {
-      // Convert UI-friendly 'number' type to specific backend type (e.g., 'u8')
+      // Overwrite the 'type' property for the final JSON payload.
       field.type = lenToTypeMap[field.len] || 'u32';
     }
-    // 'bool' type is already valid for the backend, so no change is needed
+    // If field.type is 'bool', it's already in the correct format for the backend,
+    // so no transformation is needed.
   };
 
   itemsCopy.forEach((item: any) => {
-    if (item.kind === 'group') {
+    if ('fields' in item) { // This is a Group
       item.fields.forEach(transformField);
-    } else if (item.kind === 'switch') {
+    } else if ('switch' in item) { // This is a Switch
       Object.values(item.cases).forEach((c: any) => {
         c.groups.forEach((g: any) => g.fields.forEach(transformField));
       });
@@ -302,7 +286,8 @@ function getTransformedItems() {
     }
   });
 
-  return stripKind(itemsCopy);
+  // Remove the UI-only 'kind' property from each item before returning.
+  return itemsCopy.map(({ kind, ...rest }) => rest);
 }
 
 const preview = computed(() => JSON.stringify({
@@ -311,14 +296,11 @@ const preview = computed(() => JSON.stringify({
   items: getTransformedItems()
 }, null, 2))
 
-
-/* ---------- submit / reset ---------- */
 async function submit() {
   if (errors.value.length) {
     msg.error('Please fix validation errors before submitting.');
     return
   }
-  // The 'preview' computed property now generates the correct backend payload
   const payload = JSON.parse(preview.value)
   try {
     if (props.mode === 'edit') {
@@ -346,7 +328,6 @@ function reset() {
   cmd.value = blankCommand()
 }
 
-/* ---------- watch for prop updates ---------- */
 watch(() => props.initial, nv => {
   if (props.mode === 'edit' && nv) {
     const c = deepCopy(nv)
@@ -360,8 +341,6 @@ watch(() => props.initial, nv => {
 .item-block {
   position: relative;
 }
-
-/* CORRECTED: Widen the number input for length */
 .item-block :deep(.field-len) {
   width: 90px;
 }

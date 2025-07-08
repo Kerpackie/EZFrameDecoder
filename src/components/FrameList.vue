@@ -120,6 +120,7 @@ watch(
   flex: 1 1 auto;
   overflow-y: auto;
   scrollbar-width: none;
+  text-align: center;
 }
 .list-wrapper::-webkit-scrollbar {
   display: none;

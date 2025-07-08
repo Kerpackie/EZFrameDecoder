@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme="isDarkMode ? darkTheme : null" :theme-overrides="isDarkMode ? darkThemeOverrides : lightThemeOverrides">
     <n-dialog-provider>
       <n-message-provider>
         <n-layout class="root">
@@ -55,9 +55,9 @@ import {
   NMenu,
   NIcon
 } from "naive-ui";
-import {h, ref, watch, computed} from "vue";
+import {h, ref, watch, computed, watchEffect} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import {themeOverrides} from "./theme";
+import { lightThemeOverrides, darkThemeOverrides, darkTheme } from "./theme";
 import {useBreakpoint} from "./composables/useBreakpoint";
 import { useSettingsStore } from './stores/settingsStore';
 
@@ -73,7 +73,15 @@ const icon = (comp: any) => () => h(NIcon, null, {default: () => h(comp)});
 
 const router = useRouter();
 const route = useRoute();
-const { isAdvancedMode } = useSettingsStore();
+const { isAdvancedMode, isDarkMode } = useSettingsStore();
+
+// --- THEME-AWARE SCROLLBAR ---
+watchEffect(() => {
+  const thumbColor = isDarkMode.value ? '#4b5563' : '#cbd5e1';
+  const trackColor = isDarkMode.value ? '#1f2937' : '#f1f5f9';
+  document.documentElement.style.setProperty('--scrollbar-thumb-color', thumbColor);
+  document.documentElement.style.setProperty('--scrollbar-track-color', trackColor);
+});
 
 const menuOptions = computed(() => {
   const standardMenu = [
@@ -116,6 +124,29 @@ const collapsed = ref(isMedium.value);
 watch(isMedium, val => (collapsed.value = val));
 </script>
 
+<style>
+/* GLOBAL SCROLLBAR STYLES */
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+}
+
+/* For Chrome, Edge, and Safari */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-color);
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color);
+  border-radius: 4px;
+  border: 2px solid var(--scrollbar-track-color);
+}
+</style>
+
 <style scoped>
 /* Layout */
 .root {
@@ -143,7 +174,6 @@ watch(isMedium, val => (collapsed.value = val));
   height: 100%;
   overflow: auto;
   padding: 1rem;
-  background-color: #f8f9fa;
 }
 
 .main :deep(.n-layout) {

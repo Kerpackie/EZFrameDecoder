@@ -2,15 +2,14 @@
   <n-layout has-sider class="decoder-layout">
     <!-- Command list sidebar -->
     <n-layout-sider
-        :width="isMedium ? 220 : 310"
-        :collapsed-width="isMedium ? 0 : 220"
+        :width="240"
+        :collapsed-width="0"
         :collapsed="collapsed"
-        :show-trigger="isMedium"
+        show-trigger
         collapse-mode="width"
         bordered
         class="cmd-sider"
-        @collapse="collapsed = true"
-        @expand="collapsed = false"
+        @update:collapsed="v => collapsed = v"
     >
       <frame-list />
     </n-layout-sider>
@@ -24,19 +23,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { NLayout, NLayoutSider, NLayoutContent } from "naive-ui";
 import FrameList   from "../components/FrameList.vue";
 import DecoderInput  from "../components/DecoderInput.vue";
 import DecodedPane   from "../components/DecodedPane.vue";
-import { useBreakpoint } from "../composables/useBreakpoint";
 
-const isMedium = useBreakpoint("(max-width: 1200px)");
-const collapsed = ref(isMedium.value);
-
-watch(isMedium, val => {
-  collapsed.value = val; // auto collapse when resizing small
-});
+const collapsed = ref(false);
 </script>
 
 <style scoped>
@@ -44,14 +37,18 @@ watch(isMedium, val => {
 
 .cmd-sider {
   transition: width 0.3s ease;
-  background-color: #f8f9fa;
+  border-radius: 0 8px 8px 0;
 }
+.cmd-sider :deep(.n-layout-sider-content) {
+  padding: 1rem;
+}
+
 
 .decode-main {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 0 1rem;
+  padding: 1rem;
 }
 
 .result {
