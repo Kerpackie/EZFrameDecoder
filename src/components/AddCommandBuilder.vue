@@ -63,7 +63,7 @@
       </ul>
     </n-alert>
 
-    <n-text depth="3" class="mb-2">Total field length: {{ total }} / {{ expectedFieldLength }} hex chars</n-text>
+    <n-text depth="3" class="mb-2">Total field length: {{ total }} / {{ minFieldLength }}-{{ maxFieldLength }} hex chars</n-text>
     <n-code :code="preview" language="json" class="mb-4"/>
 
     <n-button type="primary" @click="submit" :disabled="errors.length">
@@ -98,8 +98,6 @@ const msg = useMessage()
 /* ---------- util ---------- */
 const deepCopy = (o: any) => JSON.parse(JSON.stringify(o ?? {}))
 
-// This function is no longer needed as the backend handles type coercion.
-// We keep the structure for potential future frontend-only logic.
 function normaliseField(f: any) {
   // No-op, backend handles types.
 }
@@ -142,7 +140,7 @@ function blankCommand() {
             name: 'RSAddress',
             len: 2,
             base: 16,
-            typ: 'u8', // Use backend types
+            type: 'number', // CORRECTED: Use 'type' for UI binding
             description: 'Device address on bus'
           }
         ]
@@ -155,7 +153,7 @@ function blankCommand() {
             name: 'field-1',
             len: 2,
             base: 16,
-            typ: 'u8', // Use backend types
+            type: 'number', // CORRECTED: Use 'type' for UI binding
             description: ''
           }
         ]
@@ -183,7 +181,7 @@ function addItem(kind: 'group' | 'switch') {
   if (kind === 'group') {
     cmd.value.items.push({
       kind: 'group', name: 'Group',
-      fields: [{name: 'field-1', len: 2, base: 16, typ: 'u8', description: ''}]
+      fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}] // CORRECTED: Use 'type'
     })
   } else {
     const header = headerFields.value.find(n => n !== 'RSAddress') || headerFields.value[0] || ''
@@ -195,7 +193,7 @@ function addItem(kind: 'group' | 'switch') {
           description: '',
           groups: [{
             name: 'Group',
-            fields: [{name: 'field-1', len: 2, base: 16, typ: 'u8', description: ''}]
+            fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}] // CORRECTED: Use 'type'
           }]
         }
       },
@@ -205,11 +203,18 @@ function addItem(kind: 'group' | 'switch') {
 }
 
 /* ---------- validation ---------- */
-const expectedFieldLength = computed(() => {
-  // Total frame length minus start, terminator, and the command letter itself.
+const minFieldLength = computed(() => {
   if (!props.family) return 0;
   const commandLetterLength = 1;
-  return props.family.frame_len - props.family.start.length - props.family.terminator.length - commandLetterLength;
+  const maxTerminatorLength = 3;
+  return props.family.frame_len - props.family.start.length - maxTerminatorLength - commandLetterLength;
+});
+
+const maxFieldLength = computed(() => {
+  if (!props.family) return 0;
+  const commandLetterLength = 1;
+  const minTerminatorLength = 1;
+  return props.family.frame_len - props.family.start.length - minTerminatorLength - commandLetterLength;
 });
 
 
@@ -218,8 +223,6 @@ function effectiveFields(): any[] {
   cmd.value.items.forEach((it: any) => {
     if (it.kind === 'group') out.push(...it.fields)
     else {
-      // For validation, we can check the length of the first variant's fields as a representative.
-      // A more complex validation could ensure all variants have the same length.
       const firstCase: any = Object.values(it.cases)[0]
       const variant: any = firstCase ?? it.default
       variant && variant.groups.forEach((g: any) => out.push(...g.fields))
@@ -233,15 +236,10 @@ const total = computed(() => effectiveFields().reduce((s, f) => s + f.len, 0))
 const errors = computed(() => {
   const e: string[] = []
 
-  /* duplicate letter (create-mode only) */
-  if (
-      props.mode === 'create' &&
-      props.existingLetters.includes(cmd.value.letter)
-  ) {
+  if (props.mode === 'create' && props.existingLetters.includes(cmd.value.letter)) {
     e.push(`Letter ${cmd.value.letter} already exists in this family.`)
   }
 
-  /* per-group duplicate & per-field rules */
   cmd.value.items.forEach((it: any) => {
     const groups =
         it.kind === 'group'
@@ -263,19 +261,56 @@ const errors = computed(() => {
     })
   })
 
-  /* effective-length rule */
-  if (total.value !== expectedFieldLength.value)
-    e.push(`Total length of all fields must be exactly ${expectedFieldLength.value} characters.`)
+  if (total.value < minFieldLength.value || total.value > maxFieldLength.value) {
+    e.push(`Total field length must be between ${minFieldLength.value} and ${maxFieldLength.value} characters.`)
+  }
 
   return e
 })
 
-/* ---------- preview ---------- */
+/* ---------- preview & submission payload ---------- */
+function getTransformedItems() {
+  // Create a deep copy to avoid mutating the reactive UI state `cmd`
+  const itemsCopy = deepCopy(cmd.value.items);
+
+  const lenToTypeMap: { [key: number]: string } = {
+    2: 'u8',
+    4: 'u16',
+    6: 'u24',
+    8: 'u32',
+    16: 'u64'
+  };
+
+  const transformField = (field: any) => {
+    if (field.type === 'number') {
+      // Convert UI-friendly 'number' type to specific backend type (e.g., 'u8')
+      field.type = lenToTypeMap[field.len] || 'u32';
+    }
+    // 'bool' type is already valid for the backend, so no change is needed
+  };
+
+  itemsCopy.forEach((item: any) => {
+    if (item.kind === 'group') {
+      item.fields.forEach(transformField);
+    } else if (item.kind === 'switch') {
+      Object.values(item.cases).forEach((c: any) => {
+        c.groups.forEach((g: any) => g.fields.forEach(transformField));
+      });
+      if (item.default) {
+        item.default.groups.forEach((g: any) => g.fields.forEach(transformField));
+      }
+    }
+  });
+
+  return stripKind(itemsCopy);
+}
+
 const preview = computed(() => JSON.stringify({
   letter: cmd.value.letter,
   description: cmd.value.description,
-  items: stripKind(cmd.value.items)
+  items: getTransformedItems()
 }, null, 2))
+
 
 /* ---------- submit / reset ---------- */
 async function submit() {
@@ -283,12 +318,13 @@ async function submit() {
     msg.error('Please fix validation errors before submitting.');
     return
   }
+  // The 'preview' computed property now generates the correct backend payload
   const payload = JSON.parse(preview.value)
   try {
     if (props.mode === 'edit') {
       await invoke('update_command', {
         familyStart: props.family.start,
-        originalLetter: props.initial.letter, // Pass the original letter for lookup
+        originalLetter: props.initial.letter,
         cmd: payload
       })
       msg.success(`Command '${payload.letter}' saved successfully.`)
@@ -323,5 +359,10 @@ watch(() => props.initial, nv => {
 <style scoped>
 .item-block {
   position: relative;
+}
+
+/* CORRECTED: Widen the number input for length */
+.item-block :deep(.field-len) {
+  width: 90px;
 }
 </style>

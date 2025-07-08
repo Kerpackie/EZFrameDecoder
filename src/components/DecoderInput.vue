@@ -28,4 +28,8 @@ const { run } = useSharedDecode();
 .frame-row n-input {
   flex: 1 1 auto;
 }
+
+.n-upload {
+  width: 95%;
+}
 </style>

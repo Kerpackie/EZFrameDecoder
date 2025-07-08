@@ -67,8 +67,8 @@ pub struct Variant {
 /* ──────────── Decode error types ──────────── */
 #[derive(thiserror::Error, Debug)]
 pub enum DecodeError {
-    #[error("frame must be fixed length, got {0}")]
-    BadLength(usize),
+    #[error("frame must be fixed length of {expected}, but got {got}")]
+    BadLength { expected: u32, got: usize },
     #[error("no family matches frame start")]
     UnknownFamily,
     #[error("terminator must be 1-3 matching characters, got {0}")]
@@ -107,16 +107,21 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
         return Err(DecodeError::InvalidSpec("Family terminator is empty in spec.".into()));
     }
 
+    // CORRECTED LOGIC: The total frame length is now always fixed.
     if frame.len() != family.frame_len as usize {
-        return Err(DecodeError::BadLength(frame.len()));
+        return Err(DecodeError::BadLength {
+            expected: family.frame_len,
+            got: frame.len(),
+        });
     }
 
-    let term_char = family.terminator.chars().next().unwrap(); // Safe due to check above
+    let term_char = family.terminator.chars().next().unwrap();
     let term_cnt = frame.chars().rev().take_while(|c| *c == term_char).count();
     if !(1..=3).contains(&term_cnt) {
         return Err(DecodeError::BadTerminators(term_cnt));
     }
 
+    // The data payload (body) is now variable length, sliced correctly.
     let body = &frame[family.start.len()..frame.len() - term_cnt];
     let (letter_str, mut cursor) = body.split_at(1);
     let letter = letter_str.chars().next().unwrap();
