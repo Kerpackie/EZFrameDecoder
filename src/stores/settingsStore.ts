@@ -20,6 +20,20 @@ watch(isDarkMode, (newValue) => {
     localStorage.setItem('isDarkMode', JSON.stringify(newValue));
 });
 
+// --- Spec File Path State (now for display/source path) ---
+const specFilePath = ref<string | null>(null);
+const savedSpecPath = localStorage.getItem('specFilePath');
+if (savedSpecPath) {
+    specFilePath.value = savedSpecPath;
+}
+watch(specFilePath, (newValue) => {
+    if (newValue) {
+        localStorage.setItem('specFilePath', newValue);
+    } else {
+        localStorage.removeItem('specFilePath'); // Remove if null/default
+    }
+});
+
 
 // --- Composable ---
 export function useSettingsStore() {
@@ -31,10 +45,16 @@ export function useSettingsStore() {
         isDarkMode.value = !isDarkMode.value;
     };
 
+    const setSpecFilePath = (path: string | null) => {
+        specFilePath.value = path;
+    };
+
     return {
         isAdvancedMode,
         toggleAdvancedMode,
         isDarkMode,
         toggleDarkMode,
+        specFilePath,
+        setSpecFilePath,
     };
 }

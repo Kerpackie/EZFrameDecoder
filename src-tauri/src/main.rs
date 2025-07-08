@@ -16,6 +16,7 @@ use std::{fs, path::PathBuf, sync::RwLock};
 use tauri::{Manager};
 use tauri_plugin_fs::init as fs_plugin;
 use dirs_next::config_dir;
+// Removed: use tauri::api::dialog::blocking::FileDialogBuilder; // No longer needed
 
 /* ─────────── Constants & Embedded Default ─────────── */
 const APP_DIR: &str = "EZFrameDecoder";
@@ -24,7 +25,11 @@ const USER_SPEC_FILE: &str = "spec_override.json";
 const DEFAULT_SPEC: &str = include_str!("../resources/spec_full.json");
 
 /* ─────────── ensure + load helpers ─────────── */
-fn ensure_user_spec() -> std::io::Result<PathBuf> {
+
+/// Ensures the default user spec file exists in the config directory.
+/// If it doesn't exist, it creates it from the bundled DEFAULT_SPEC.
+/// Returns the path to the user spec file.
+fn ensure_default_user_spec_path() -> std::io::Result<PathBuf> {
     let user_path = config_dir()
         .ok_or(std::io::ErrorKind::NotFound)?
         .join(APP_DIR)
@@ -37,38 +42,65 @@ fn ensure_user_spec() -> std::io::Result<PathBuf> {
         fs::write(&user_path, DEFAULT_SPEC)?;
         println!("★ Copied default spec to {}", user_path.display());
     }
-
     Ok(user_path)
 }
 
-fn load_spec_from_disk() -> Result<SpecFile, Box<dyn std::error::Error>> {
-    let path = ensure_user_spec()?;
-    let text = fs::read_to_string(&path)?;
+/// Loads the SpecFile from a given path.
+/// If the path is None, it defaults to the user's config directory spec file.
+/// If the file at the given path is not a valid SpecFile, it returns an error.
+fn load_spec_from_disk(path: Option<PathBuf>) -> Result<SpecFile, Box<dyn std::error::Error>> {
+    let target_path = match path {
+        Some(p) => p,
+        None => ensure_default_user_spec_path()?,
+    };
+
+    println!("Attempting to load spec from: {}", target_path.display());
+
+    let text = fs::read_to_string(&target_path)?;
     let spec = serde_json::from_str::<SpecFile>(&text)?;
     Ok(spec)
 }
 
 /* ─────────── live, hot‑reloadable spec instance ─────────── */
-static SPEC: Lazy<RwLock<SpecFile>> =
-    Lazy::new(|| RwLock::new(load_spec_from_disk().expect("load spec")));
+// Initially load the default spec or the last valid one.
+static SPEC: Lazy<RwLock<SpecFile>> = Lazy::new(|| {
+    // Try to load from the default user spec path first
+    match load_spec_from_disk(None) {
+        Ok(spec) => RwLock::new(spec), // Wrapped in RwLock::new()
+        Err(e) => {
+            eprintln!("Error loading default spec: {}. Falling back to embedded default.", e);
+            // If default user spec is invalid, use the embedded default directly
+            RwLock::new(serde_json::from_str(DEFAULT_SPEC).expect("Failed to parse embedded default spec")) // Wrapped in RwLock::new()
+        }
+    }
+});
 
 /* ─────────── internal helpers ─────────── */
-fn reload_spec() -> Result<(), String> {
+
+/// Reloads the global SPEC instance from disk, specifically from the default user spec file.
+/// This function is called after mutations to the spec_override.json or when a new spec is set.
+/// If loading fails, the SPEC remains unchanged and an error is returned.
+fn reload_spec_from_default_path() -> Result<(), String> {
     let mut spec_lock = SPEC.write().unwrap();
-    *spec_lock = load_spec_from_disk().map_err(|e| e.to_string())?;
+    let new_spec = load_spec_from_disk(None) // Always load from the default path
+        .map_err(|e| format!("Failed to load spec: {}", e))?;
+    *spec_lock = new_spec;
     Ok(())
 }
 
+/// Helper to perform an operation that mutates the spec file on disk and reloads it.
+/// Ensures the default user spec file exists before attempting to read/write.
 fn mutating_spec<F>(op: F) -> Result<(), String>
 where
     F: FnOnce(&mut SpecFile) -> Result<(), String>,
 {
-    let path = ensure_user_spec().map_err(|e| e.to_string())?;
+    // Ensure we are working with the default user spec file for mutations
+    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
     let mut spec: SpecFile = serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     op(&mut spec)?;
     fs::write(&path, serde_json::to_string_pretty(&spec).unwrap()).map_err(|e| e.to_string())?;
-    reload_spec()?;
+    reload_spec_from_default_path()?; // Reload from the default path after mutation
     Ok(())
 }
 
@@ -94,6 +126,8 @@ fn validate_family_properties(fam: &Family) -> Result<(), String> {
 }
 
 /* ─────────── Tauri commands ─────────── */
+
+/// Decodes a single frame string using the currently loaded spec.
 #[tauri::command]
 fn decode_frame(frame: String) -> Result<Value, String> {
     let trimmed = clean_frame(&frame);
@@ -104,6 +138,7 @@ fn decode_frame(frame: String) -> Result<Value, String> {
     decode(trimmed, &*spec).map_err(|e| e.to_string())
 }
 
+/// Decodes multiple frames from a text string, line by line.
 #[tauri::command]
 fn batch_decode(text: String) -> Result<Vec<Value>, String> {
     let spec = SPEC.read().unwrap();
@@ -118,6 +153,36 @@ fn batch_decode(text: String) -> Result<Vec<Value>, String> {
         })
         .collect()
 }
+
+/// Sets the application's active spec from provided JSON content.
+/// This content is validated and then written to the spec_override.json file.
+#[tauri::command]
+fn set_spec_from_content(content: String) -> Result<(), String> {
+    // First, try to parse the content to validate it as a SpecFile
+    let _ = serde_json::from_str::<SpecFile>(&content)
+        .map_err(|e| format!("Invalid spec file content: {}", e))?;
+
+    // If valid, write it to the user's spec_override.json file
+    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
+    fs::write(&path, content).map_err(|e| e.to_string())?;
+
+    // Reload the in-memory SPEC from the updated file
+    reload_spec_from_default_path()?;
+    println!("Spec file updated from provided content.");
+    Ok(())
+}
+
+/// Resets the application's spec to the bundled default.
+/// This writes the DEFAULT_SPEC content to spec_override.json.
+#[tauri::command]
+fn reset_spec_to_default() -> Result<(), String> {
+    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
+    fs::write(&path, DEFAULT_SPEC).map_err(|e| e.to_string())?;
+    reload_spec_from_default_path()?;
+    println!("Spec file reset to default.");
+    Ok(())
+}
+
 
 // ─────────── Family CRUD ───────────
 #[tauri::command]
@@ -249,11 +314,14 @@ fn delete_command(family_start: String, letter: String) -> Result<(), String> {
 /* ─────────── Application entry point ─────────── */
 fn main() {
     tauri::Builder::default()
-        .plugin(fs_plugin())
+        .plugin(fs_plugin()) // Initialize the fs plugin
         .invoke_handler(tauri::generate_handler![
             // Decode
             decode_frame,
             batch_decode,
+            // Spec file management
+            set_spec_from_content, // New command to set spec from frontend content
+            reset_spec_to_default, // New command to reset spec to default
             // Family CRUD
             get_families,
             create_family,

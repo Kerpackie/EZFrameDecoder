@@ -14,7 +14,7 @@
 
       <n-divider />
 
-      <!-- Dark Mode Setting (New) -->
+      <!-- Dark Mode Setting -->
       <div class="setting-row">
         <div class="setting-info">
           <n-h3 style="margin: 0;">Dark Mode</n-h3>
@@ -24,15 +24,117 @@
         </div>
         <n-switch :value="isDarkMode" @update:value="toggleDarkMode" />
       </div>
+
+      <n-divider />
+
+      <!-- Spec File Location Setting -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <n-h3 style="margin: 0;">Spec File Location</n-h3>
+          <n-text depth="3">
+            Current: {{ specFilePath || 'Default (spec_override.json)' }}
+          </n-text>
+          <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
+            (Last selected file was invalid. Using default.)
+          </n-text>
+        </div>
+        <!-- Conditionally render the spec file options based on advanced mode -->
+        <n-space vertical v-if="isAdvancedMode">
+          <!-- File uploader for spec file, styled as a button -->
+          <n-upload
+              v-model:file-list="dummySpecFile"
+              :default-upload="false"
+              accept=".json"
+              :max="1"
+              :before-upload="validateSpecFile"
+              :on-change="onSpecFileChange"
+              list-type="text"
+              class="spec-upload-button-wrapper"
+          >
+            <n-upload-dragger class="spec-upload-button">
+              Choose Spec File
+            </n-upload-dragger>
+          </n-upload>
+
+          <n-button @click="resetSpecFile" :disabled="!specFilePath">
+            Reset to Default
+          </n-button>
+        </n-space>
+      </div>
+
     </n-space>
   </n-card>
 </template>
 
 <script setup lang="ts">
-import { NCard, NSwitch, NH3, NText, NDivider, NSpace } from 'naive-ui';
+import { ref } from 'vue';
+import {
+  NCard, NSwitch, NH3, NText, NDivider, NSpace, NButton, useMessage,
+  NUpload, NUploadDragger
+} from 'naive-ui';
+import type { UploadFileInfo } from 'naive-ui'; // Import UploadFileInfo
 import { useSettingsStore } from '../stores/settingsStore';
+import { invoke } from '@tauri-apps/api/core';
 
-const { isAdvancedMode, toggleAdvancedMode, isDarkMode, toggleDarkMode } = useSettingsStore();
+const message = useMessage();
+const { isAdvancedMode, toggleAdvancedMode, isDarkMode, toggleDarkMode, specFilePath, setSpecFilePath } = useSettingsStore();
+
+// This ref will track if the currently displayed specFilePath is valid and loaded by the backend.
+// It's primarily for UI feedback, the backend handles the actual fallback.
+const isSpecFileValid = ref(true);
+
+// Dummy file list for n-upload
+const dummySpecFile = ref<UploadFileInfo[]>([]);
+
+// Helper to validate file extension
+function validateSpecFile(file: UploadFileInfo): boolean {
+  if (!file.name.toLowerCase().endsWith('.json')) {
+    message.error('Only .json files are allowed for spec files.');
+    return false;
+  }
+  return true;
+}
+
+// Handler for when a spec file is selected/dropped
+async function onSpecFileChange(info: { file: UploadFileInfo }) {
+  const file = info.file.file;
+  if (!file) return;
+
+  try {
+    const content = await file.text(); // Read file content as string on frontend
+
+    // Invoke backend command with the file content
+    await invoke('set_spec_from_content', { content: content });
+
+    // Update frontend store with the original file path for display
+    setSpecFilePath(file.path || file.name); // Use file.path if available (Tauri), fallback to file.name
+    isSpecFileValid.value = true;
+    message.success('Spec file loaded and updated successfully!');
+  } catch (error: any) {
+    console.error('Error loading spec file:', error);
+    isSpecFileValid.value = false; // Mark as invalid for UI feedback
+    message.error(`Failed to load spec file: ${error}`);
+    // If loading fails, revert specFilePath in store to null to indicate default/invalid
+    setSpecFilePath(null);
+  } finally {
+    // Clear the file list in the uploader after processing
+    dummySpecFile.value = [];
+  }
+}
+
+// Function to handle resetting to the default spec file
+async function resetSpecFile() {
+  try {
+    // Invoke the new backend command to reset to default
+    await invoke('reset_spec_to_default');
+    setSpecFilePath(null); // Clear the stored path in frontend
+    isSpecFileValid.value = true;
+    message.success('Spec file reset to default!');
+  } catch (error: any) {
+    console.error('Error resetting spec file:', error);
+    message.error(`Failed to reset spec file: ${error}`);
+  }
+}
 </script>
 
 <style scoped>
@@ -43,5 +145,40 @@ const { isAdvancedMode, toggleAdvancedMode, isDarkMode, toggleDarkMode } = useSe
 }
 .setting-info {
   margin-right: 2rem;
+}
+
+/* Styles to make n-upload-dragger look like a button */
+.spec-upload-button-wrapper :deep(.n-upload-dragger) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Basic button styling */
+  padding: 8px 15px; /* Adjust padding to match NButton */
+  border-radius: 6px; /* Match NButton's border-radius */
+  font-size: 14px; /* Match NButton's font size */
+  font-weight: 500; /* Match NButton's font weight */
+  cursor: pointer;
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
+
+  /* Mimic Naive UI primary button colors */
+  background-color: var(--n-primary-color);
+  color: var(--n-button-text-color); /* Usually white or a light color for primary */
+  border: 1px solid var(--n-primary-color); /* Solid border matching background */
+  box-shadow: var(--n-box-shadow); /* Optional: Add a subtle shadow */
+}
+
+.spec-upload-button-wrapper :deep(.n-upload-dragger:hover) {
+  background-color: var(--n-primary-color-hover);
+  border-color: var(--n-primary-color-hover);
+}
+
+.spec-upload-button-wrapper :deep(.n-upload-dragger:active) {
+  background-color: var(--n-primary-color-pressed);
+  border-color: var(--n-primary-color-pressed);
+}
+
+/* Hide the default file list if it appears */
+.spec-upload-button-wrapper :deep(.n-upload-file-list) {
+  display: none;
 }
 </style>
