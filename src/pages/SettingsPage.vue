@@ -42,7 +42,7 @@
                 </n-text>
               </div>
               <!-- Conditionally render the spec file options based on advanced mode -->
-              <n-space vertical v-if="isAdvancedMode">
+              <n-space v-if="isAdvancedMode">
                 <!-- File uploader for spec file, styled as a button -->
                 <n-upload
                     v-model:file-list="dummySpecFile"
@@ -54,9 +54,20 @@
                     list-type="text"
                     class="spec-upload-button-wrapper"
                 >
-                  <n-upload-dragger class="spec-upload-button">
+                  <n-button type="primary" class="spec-upload-btn" @click="$refs.specUploader?.open()">
                     Choose Spec File
-                  </n-upload-dragger>
+                  </n-button>
+                  <n-upload
+                    ref="specUploader"
+                    v-model:file-list="dummySpecFile"
+                    :default-upload="false"
+                    accept=".json"
+                    :max="1"
+                    :before-upload="validateSpecFile"
+                    :on-change="onSpecFileChange"
+                    list-type="text"
+                    style="display: none;"
+                  />
                 </n-upload>
 
                 <n-button @click="resetSpecFile" :disabled="!specFilePath">

@@ -95,8 +95,7 @@ const menuOptions = computed(() => {
   ];
 
   const commonMenu = [
-    {label: "Settings", key: "/settings", icon: icon(SettingsOutline)},
-    {label: "About", key: "/about", icon: icon(InformationCircleOutline)}
+    {label: "Settings", key: "/settings", icon: icon(SettingsOutline)}
   ];
 
   if (isAdvancedMode.value) {
