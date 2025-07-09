@@ -3,10 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-// ────────────────────────────────────────────────────────────────
-// FULL main.rs — multi‑family backend with legacy default‑spec support
-// ────────────────────────────────────────────────────────────────
-
 mod decoder;
 
 use decoder::{decode, Command, Family, SpecFile};
@@ -16,13 +12,12 @@ use std::{fs, path::PathBuf, sync::RwLock};
 use tauri::{Manager};
 use tauri_plugin_fs::init as fs_plugin;
 use dirs_next::config_dir;
-// Removed: use tauri::api::dialog::blocking::FileDialogBuilder; // No longer needed
 
 /* ─────────── Constants & Embedded Default ─────────── */
 const APP_DIR: &str = "EZFrameDecoder";
-const USER_SPEC_FILE: &str = "spec_override.json";
-// The file bundled at compile‑time — still called spec_full.json but in new schema
-const DEFAULT_SPEC: &str = include_str!("../resources/spec_full.json");
+const USER_SPEC_FILE: &str = "spec_override.ezspec";
+// The file bundled at compile‑time — now named spec_full.ezspec
+const DEFAULT_SPEC: &str = include_str!("../resources/spec_full.ezspec");
 
 /* ─────────── ensure + load helpers ─────────── */
 
@@ -78,7 +73,7 @@ static SPEC: Lazy<RwLock<SpecFile>> = Lazy::new(|| {
 /* ─────────── internal helpers ─────────── */
 
 /// Reloads the global SPEC instance from disk, specifically from the default user spec file.
-/// This function is called after mutations to the spec_override.json or when a new spec is set.
+/// This function is called after mutations to the spec_override.ezspec or when a new spec is set.
 /// If loading fails, the SPEC remains unchanged and an error is returned.
 fn reload_spec_from_default_path() -> Result<(), String> {
     let mut spec_lock = SPEC.write().unwrap();
@@ -155,14 +150,14 @@ fn batch_decode(text: String) -> Result<Vec<Value>, String> {
 }
 
 /// Sets the application's active spec from provided JSON content.
-/// This content is validated and then written to the spec_override.json file.
+/// This content is validated and then written to the spec_override.ezspec file.
 #[tauri::command]
 fn set_spec_from_content(content: String) -> Result<(), String> {
     // First, try to parse the content to validate it as a SpecFile
     let _ = serde_json::from_str::<SpecFile>(&content)
         .map_err(|e| format!("Invalid spec file content: {}", e))?;
 
-    // If valid, write it to the user's spec_override.json file
+    // If valid, write it to the user's spec_override.ezspec file
     let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
     fs::write(&path, content).map_err(|e| e.to_string())?;
 
@@ -173,7 +168,7 @@ fn set_spec_from_content(content: String) -> Result<(), String> {
 }
 
 /// Resets the application's spec to the bundled default.
-/// This writes the DEFAULT_SPEC content to spec_override.json.
+/// This writes the DEFAULT_SPEC content to spec_override.ezspec.
 #[tauri::command]
 fn reset_spec_to_default() -> Result<(), String> {
     let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
@@ -320,8 +315,8 @@ fn main() {
             decode_frame,
             batch_decode,
             // Spec file management
-            set_spec_from_content, // New command to set spec from frontend content
-            reset_spec_to_default, // New command to reset spec to default
+            set_spec_from_content,
+            reset_spec_to_default,
             // Family CRUD
             get_families,
             create_family,

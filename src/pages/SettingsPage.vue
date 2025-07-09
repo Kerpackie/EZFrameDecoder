@@ -4,7 +4,6 @@
       <div class="settings-wrapper">
         <n-card title="Application Settings">
           <n-space vertical size="large">
-            <!-- Advanced Mode Setting -->
             <div class="setting-row">
               <div class="setting-info">
                 <n-h3 style="margin: 0;">Advanced Mode</n-h3>
@@ -17,7 +16,6 @@
 
             <n-divider />
 
-            <!-- Dark Mode Setting -->
             <div class="setting-row">
               <div class="setting-info">
                 <n-h3 style="margin: 0;">Dark Mode</n-h3>
@@ -30,19 +28,18 @@
 
             <n-divider />
 
-            <!-- Spec File Location Setting -->
             <div class="setting-row">
               <div class="setting-info">
                 <n-h3 style="margin: 0;">Spec File Location</n-h3>
                 <n-text depth="3">
-                  Current: {{ specFilePath || 'Default (spec_override.json)' }}
+                  Current: {{ specFilePath || 'Default (spec_override.ezspec)' }}
                 </n-text>
                 <div v-if="isAdvancedMode" style="font-size: 13px;">
                   <strong>Default Override location:</strong>
                   <ul style="margin: 4px 0 0 16px; padding: 0; list-style: disc;">
-                    <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.json</code></li>
-                    <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.json</code></li>
-                    <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.json</code></li>
+                    <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.ezspec</code></li>
+                    <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.ezspec</code></li>
+                    <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.ezspec</code></li>
                   </ul>
                 </div>
 
@@ -51,13 +48,11 @@
                 </n-text>
 
               </div>
-              <!-- Conditionally render the spec file options based on advanced mode -->
               <n-space v-if="isAdvancedMode">
-                <!-- File uploader for spec file, styled as a button -->
                 <n-upload
                     v-model:file-list="dummySpecFile"
                     :default-upload="false"
-                    accept=".json"
+                    accept=".ezspec"
                     :max="1"
                     :before-upload="validateSpecFile"
                     :on-change="onSpecFileChange"
@@ -68,15 +63,15 @@
                     Choose Spec File
                   </n-button>
                   <n-upload
-                    ref="specUploader"
-                    v-model:file-list="dummySpecFile"
-                    :default-upload="false"
-                    accept=".json"
-                    :max="1"
-                    :before-upload="validateSpecFile"
-                    :on-change="onSpecFileChange"
-                    list-type="text"
-                    style="display: none;"
+                      ref="specUploader"
+                      v-model:file-list="dummySpecFile"
+                      :default-upload="false"
+                      accept=".ezspec"
+                      :max="1"
+                      :before-upload="validateSpecFile"
+                      :on-change="onSpecFileChange"
+                      list-type="text"
+                      style="display: none;"
                   />
                 </n-upload>
 
@@ -99,7 +94,7 @@
             <n-h4 style="margin-bottom: 0;">Key Features:</n-h4>
             <n-ul>
               <n-li><strong>Dynamic Decoding:</strong> Paste raw frames for instant, real-time decoding based on the active specification.</n-li>
-              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family JSON spec format.</n-li>
+              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family EZSpec spec format.</n-li>
               <n-li><strong>Advanced Editor:</strong> A dedicated, feature-rich editor for creating and managing command families and their unique protocols.</n-li>
               <n-li><strong>Flexible Overrides:</strong> Easily load and test different spec files for different hardware or software versions.</n-li>
               <n-li><strong>Modern Interface:</strong> A clean, themeable UI with both light and dark modes for your comfort.</n-li>
@@ -142,9 +137,9 @@ const isSpecFileValid = ref(true);
 const dummySpecFile = ref<UploadFileInfo[]>([]);
 
 // Helper to validate file extension
-function validateSpecFile(file: UploadFileInfo): boolean {
-  if (!file.name.toLowerCase().endsWith('.json')) {
-    message.error('Only .json files are allowed for spec files.');
+function validateSpecFile(data: { file: UploadFileInfo, fileList: UploadFileInfo[] }): boolean {
+  if (!data.file.name.toLowerCase().endsWith('.ezspec')) {
+    message.error('Only .ezspec files are allowed for spec files.');
     return false;
   }
   return true;

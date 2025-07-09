@@ -1,0 +1,779 @@
+{
+  "families": [
+    {
+      "name": "Legacy Default",
+      "description": "Initial 23-byte protocol using <start> and >end>",
+      "start": "<",
+      "terminator": ">",
+      "frame_len": 23,
+      "commands": [
+        {
+          "letter": "A",
+          "description": "Temperature calibration command",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on RS-485 bus"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "Polarity",
+                  "len": 1,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Polarity (0 = positive, 1 = negative)"
+                },
+                {
+                  "name": "Offset",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Temperature offset (hex)"
+                },
+                {
+                  "name": "TempGain",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Temperature gain (hex)"
+                },
+                {
+                  "name": "Reserved",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Reserved"
+                },
+                {
+                  "name": "SetPointStart",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Set-point start flag"
+                },
+                {
+                  "name": "PowerUpDelay",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Power-up delay (hex)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "description": "Configuration / control commands selected by 16-bit opcode",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on RS-485 bus"
+                },
+                {
+                  "name": "Opcode",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Operation selector"
+                }
+              ]
+            },
+            {
+              "switch": "Opcode",
+              "cases": {
+                "0x0903": {
+                  "description": "Set program-ID on board",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "Reserved",
+                          "len": 12,
+                          "base": 16,
+                          "type": "u64",
+                          "description": "Unused padding"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x1700": {
+                  "description": "C17 — special device command",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "Reserved",
+                          "len": 12,
+                          "base": 16,
+                          "type": "u64",
+                          "description": "Unused padding"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x2100": {
+                  "description": "C21 — special device command",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "Reserved",
+                          "len": 12,
+                          "base": 16,
+                          "type": "u64",
+                          "description": "Unused padding"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x5002": {
+                  "description": "Open driver",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "Reserved",
+                          "len": 12,
+                          "base": 16,
+                          "type": "u64",
+                          "description": "Unused padding"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x5003": {
+                  "description": "Close driver + get checksum",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "Reserved",
+                          "len": 12,
+                          "base": 16,
+                          "type": "u64",
+                          "description": "Unused padding"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "default": {
+                "description": "Unrecognised C-opcode",
+                "groups": [
+                  {
+                    "name": "payload",
+                    "fields": [
+                      {
+                        "name": "Raw",
+                        "len": 12,
+                        "base": 16,
+                        "type": "u64",
+                        "description": "Raw payload bytes"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "description": "Current monitoring command",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "PowerSupplyId",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Power-supply index"
+                },
+                {
+                  "name": "CurrentMonitorCalibration",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Calibration value"
+                },
+                {
+                  "name": "CurrentMonitor",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Current monitor set-point"
+                },
+                {
+                  "name": "CurrentMonitorOffset",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Offset value"
+                },
+                {
+                  "name": "OffsetPolarity",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Offset polarity (0 = −, 1 = +)"
+                },
+                {
+                  "name": "Reserved",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Reserved"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "description": "Execution-settings command",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "StepDelay",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Delay between steps"
+                },
+                {
+                  "name": "StepEnabled",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Enable single-step mode (00 / 01)"
+                },
+                {
+                  "name": "AutoRetryCount",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Auto-retry attempts"
+                },
+                {
+                  "name": "EnableAutoReset",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Auto-reset flag (00 / 01)"
+                },
+                {
+                  "name": "EnableStopAtMaxTemp",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Stop on max-temperature flag"
+                },
+                {
+                  "name": "EnableSequencing",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Enable sequencing"
+                },
+                {
+                  "name": "StopOnClockError",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Stop on clock error"
+                },
+                {
+                  "name": "StopOnCurrentError",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Stop on current error"
+                },
+                {
+                  "name": "StopOnVoltageError",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Stop on voltage error"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "S",
+          "description": "Sine-wave generator settings",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Driver index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "SineWaveId",
+                  "len": 2,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Sine-wave channel"
+                },
+                {
+                  "name": "SineWaveRequired",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Enable sine wave"
+                },
+                {
+                  "name": "SineWaveType",
+                  "len": 1,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Waveform type"
+                },
+                {
+                  "name": "ResetRegister",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Reset register"
+                },
+                {
+                  "name": "DutyRegister",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Duty register"
+                },
+                {
+                  "name": "BaseFrequency",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Base frequency"
+                },
+                {
+                  "name": "SineWaveOffset",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Offset"
+                },
+                {
+                  "name": "SineWaveAmplitude",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Amplitude"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "T",
+          "description": "Real-time clock registers",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "AlarmRegister3",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Alarm reg 3"
+                },
+                {
+                  "name": "AlarmRegister2",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Alarm reg 2"
+                },
+                {
+                  "name": "AlarmRegister1",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Alarm reg 1"
+                },
+                {
+                  "name": "AlarmRegister0",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Alarm reg 0"
+                },
+                {
+                  "name": "TimeRegister3",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Time reg 3"
+                },
+                {
+                  "name": "TimeRegister2",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Time reg 2"
+                },
+                {
+                  "name": "TimeRegister1",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Time reg 1"
+                },
+                {
+                  "name": "TimeRegister0",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Time reg 0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "V",
+          "description": "Voltage step program",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "PowerSupplyId",
+                  "len": 2,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Power supply"
+                },
+                {
+                  "name": "Padding",
+                  "len": 2,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Fixed 00"
+                },
+                {
+                  "name": "Step4",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Step 4 voltage"
+                },
+                {
+                  "name": "Step3",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Step 3 voltage"
+                },
+                {
+                  "name": "Step2",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Step 2 voltage"
+                },
+                {
+                  "name": "Step1",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Step 1 voltage"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "M",
+          "description": "Step-control configuration",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Driver index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "PowerSupply",
+                  "len": 2,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Power supply"
+                },
+                {
+                  "name": "Steps",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Number of steps"
+                },
+                {
+                  "name": "StepEnabled",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "Enable steps"
+                },
+                {
+                  "name": "StepDelay",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Step delay"
+                },
+                {
+                  "name": "Reserved",
+                  "len": 6,
+                  "base": 16,
+                  "type": "u24",
+                  "description": "Padding"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "Z",
+          "description": "PTC parametric test code",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "Padding",
+                  "len": 5,
+                  "base": 16,
+                  "type": "u20",
+                  "description": "Constant 00000"
+                },
+                {
+                  "name": "TempUnits",
+                  "len": 1,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Temperature unit"
+                },
+                {
+                  "name": "OnTime",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "PTC on time"
+                },
+                {
+                  "name": "OffTime",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "PTC off time"
+                },
+                {
+                  "name": "IsPtcProgram",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "01 enable, 00 disable"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "Q",
+          "description": "Voltage monitor",
+          "items": [
+            {
+              "name": "header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Index"
+                }
+              ]
+            },
+            {
+              "name": "fields",
+              "fields": [
+                {
+                  "name": "PowerSupply",
+                  "len": 2,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Power supply"
+                },
+                {
+                  "name": "Delay",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Delay (hex)"
+                },
+                {
+                  "name": "SequenceNumber",
+                  "len": 1,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Sequence number"
+                },
+                {
+                  "name": "VoltageMonitorCalibration",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Calibration"
+                },
+                {
+                  "name": "VoltageMonitorLow",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "Low limit"
+                },
+                {
+                  "name": "VoltageMonitorHigh",
+                  "len": 3,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "High limit"
+                },
+                {
+                  "name": "Gain",
+                  "len": 1,
+                  "base": 10,
+                  "type": "u8",
+                  "description": "Gain setting"
+                },
+                {
+                  "name": "HighVoltageMonitor",
+                  "len": 1,
+                  "base": 10,
+                  "type": "bool",
+                  "description": "High-V mode"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
