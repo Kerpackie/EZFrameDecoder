@@ -37,6 +37,17 @@
                 <n-text depth="3">
                   Current: {{ specFilePath || 'Default (spec_override.json)' }}
                 </n-text>
+                <n-text depth="3" v-if="isAdvancedMode" style="font-size: 13px;">
+                  <br>
+                  <span>
+                  <strong>Default Override location:</strong>
+                  </span>
+                  <ul style="margin: 4px 0 0 16px; padding: 0; list-style: disc;">
+                  <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.json</code></li>
+                  <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.json</code></li>
+                  <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.json</code></li>
+                  </ul>
+                </n-text>
                 <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
                   (Last selected file was invalid. Using default.)
                 </n-text>
