@@ -31,9 +31,9 @@
               />
             </n-layout-sider>
 
-            <!-- Main Content -->
+            <!-- Main Content (now a separate component) -->
             <n-layout-content class="main">
-              <router-view/>
+              <MainContent />
             </n-layout-content>
 
           </n-layout>
@@ -60,6 +60,7 @@ import {useRoute, useRouter} from "vue-router";
 import { lightThemeOverrides, darkThemeOverrides, darkTheme } from "./theme";
 import {useBreakpoint} from "./composables/useBreakpoint";
 import { useSettingsStore } from './stores/settingsStore';
+import MainContent from './MainContent.vue'; // Import the new MainContent component
 
 import {
   CodeSlashOutline,
@@ -173,7 +174,6 @@ watch(isMedium, val => (collapsed.value = val));
 .main {
   height: 100%;
   overflow: auto;
-  padding: 1rem;
 }
 
 .main :deep(.n-layout) {
