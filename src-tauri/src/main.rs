@@ -6,12 +6,13 @@
 mod decoder;
 
 use decoder::{decode, Command, Family, SpecFile};
+use dirs_next::config_dir;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::{fs, path::PathBuf, sync::RwLock};
-use tauri::{Manager};
-use tauri_plugin_fs::init as fs_plugin;
-use dirs_next::config_dir;
+use tauri::Manager;
+use tauri_plugin_dialog::init as dialog_init;
+use tauri_plugin_fs::init as fs_init;
 
 /* ─────────── Constants & Embedded Default ─────────── */
 const APP_DIR: &str = "EZFrameDecoder";
@@ -63,9 +64,14 @@ static SPEC: Lazy<RwLock<SpecFile>> = Lazy::new(|| {
     match load_spec_from_disk(None) {
         Ok(spec) => RwLock::new(spec), // Wrapped in RwLock::new()
         Err(e) => {
-            eprintln!("Error loading default spec: {}. Falling back to embedded default.", e);
+            eprintln!(
+                "Error loading default spec: {}. Falling back to embedded default.",
+                e
+            );
             // If default user spec is invalid, use the embedded default directly
-            RwLock::new(serde_json::from_str(DEFAULT_SPEC).expect("Failed to parse embedded default spec")) // Wrapped in RwLock::new()
+            RwLock::new(
+                serde_json::from_str(DEFAULT_SPEC).expect("Failed to parse embedded default spec"),
+            ) // Wrapped in RwLock::new()
         }
     }
 });
@@ -91,8 +97,9 @@ where
 {
     // Ensure we are working with the default user spec file for mutations
     let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
-    let mut spec: SpecFile = serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    let mut spec: SpecFile =
+        serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
     op(&mut spec)?;
     fs::write(&path, serde_json::to_string_pretty(&spec).unwrap()).map_err(|e| e.to_string())?;
     reload_spec_from_default_path()?; // Reload from the default path after mutation
@@ -121,6 +128,13 @@ fn validate_family_properties(fam: &Family) -> Result<(), String> {
 }
 
 /* ─────────── Tauri commands ─────────── */
+
+/// Returns the current spec file content as a pretty-printed JSON string.
+#[tauri::command]
+fn get_spec_content() -> Result<String, String> {
+    let spec = SPEC.read().unwrap();
+    serde_json::to_string_pretty(&*spec).map_err(|e| format!("Failed to serialize spec: {}", e))
+}
 
 /// Decodes a single frame string using the currently loaded spec.
 #[tauri::command]
@@ -177,7 +191,6 @@ fn reset_spec_to_default() -> Result<(), String> {
     println!("Spec file reset to default.");
     Ok(())
 }
-
 
 // ─────────── Family CRUD ───────────
 #[tauri::command]
@@ -261,7 +274,11 @@ fn append_command(family_start: String, cmd: Command) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn update_command(family_start: String, original_letter: String, cmd: Command) -> Result<(), String> {
+fn update_command(
+    family_start: String,
+    original_letter: String,
+    cmd: Command,
+) -> Result<(), String> {
     mutating_spec(|spec| {
         let fam = spec
             .families
@@ -309,12 +326,16 @@ fn delete_command(family_start: String, letter: String) -> Result<(), String> {
 /* ─────────── Application entry point ─────────── */
 fn main() {
     tauri::Builder::default()
-        .plugin(fs_plugin()) // Initialize the fs plugin
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(dialog_init())
+        .plugin(fs_init())
         .invoke_handler(tauri::generate_handler![
             // Decode
             decode_frame,
             batch_decode,
             // Spec file management
+            get_spec_content,
             set_spec_from_content,
             reset_spec_to_default,
             // Family CRUD

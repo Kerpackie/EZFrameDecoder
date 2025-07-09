@@ -75,6 +75,10 @@
                   />
                 </n-upload>
 
+                <n-button @click="exportSpecFile" type="default">
+                  Export Spec
+                </n-button>
+
                 <n-button @click="resetSpecFile" :disabled="!specFilePath">
                   Reset to Default
                 </n-button>
@@ -94,7 +98,7 @@
             <n-h4 style="margin-bottom: 0;">Key Features:</n-h4>
             <n-ul>
               <n-li><strong>Dynamic Decoding:</strong> Paste raw frames for instant, real-time decoding based on the active specification.</n-li>
-              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family EZSpec spec format.</n-li>
+              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family EZSpec format.</n-li>
               <n-li><strong>Advanced Editor:</strong> A dedicated, feature-rich editor for creating and managing command families and their unique protocols.</n-li>
               <n-li><strong>Flexible Overrides:</strong> Easily load and test different spec files for different hardware or software versions.</n-li>
               <n-li><strong>Modern Interface:</strong> A clean, themeable UI with both light and dark modes for your comfort.</n-li>
@@ -122,21 +126,17 @@ import {
   NCard, NSwitch, NH3, NText, NDivider, NSpace, NButton, useMessage,
   NUpload
 } from 'naive-ui';
-import type { UploadFileInfo } from 'naive-ui'; // Import UploadFileInfo
+import type { UploadFileInfo } from 'naive-ui';
 import { useSettingsStore } from '../stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 const message = useMessage();
 const { isAdvancedMode, toggleAdvancedMode, isDarkMode, toggleDarkMode, specFilePath, setSpecFilePath } = useSettingsStore();
-
-// This ref will track if the currently displayed specFilePath is valid and loaded by the backend.
-// It's primarily for UI feedback, the backend handles the actual fallback.
 const isSpecFileValid = ref(true);
-
-// Dummy file list for n-upload
 const dummySpecFile = ref<UploadFileInfo[]>([]);
 
-// Helper to validate file extension
 function validateSpecFile(data: { file: UploadFileInfo, fileList: UploadFileInfo[] }): boolean {
   if (!data.file.name.toLowerCase().endsWith('.ezspec')) {
     message.error('Only .ezspec files are allowed for spec files.');
@@ -145,39 +145,30 @@ function validateSpecFile(data: { file: UploadFileInfo, fileList: UploadFileInfo
   return true;
 }
 
-// Handler for when a spec file is selected/dropped
 async function onSpecFileChange(info: { file: UploadFileInfo }) {
   const file = info.file.file;
   if (!file) return;
 
   try {
-    const content = await file.text(); // Read file content as string on frontend
-
-    // Invoke backend command with the file content
+    const content = await file.text();
     await invoke('set_spec_from_content', { content: content });
-
-    // Update frontend store with the original file path for display
-    setSpecFilePath(file.path || file.name); // Use file.path if available (Tauri), fallback to file.name
+    setSpecFilePath(file.path || file.name);
     isSpecFileValid.value = true;
     message.success('Spec file loaded and updated successfully!');
   } catch (error: any) {
     console.error('Error loading spec file:', error);
-    isSpecFileValid.value = false; // Mark as invalid for UI feedback
+    isSpecFileValid.value = false;
     message.error(`Failed to load spec file: ${error}`);
-    // If loading fails, revert specFilePath in store to null to indicate default/invalid
     setSpecFilePath(null);
   } finally {
-    // Clear the file list in the uploader after processing
     dummySpecFile.value = [];
   }
 }
 
-// Function to handle resetting to the default spec file
 async function resetSpecFile() {
   try {
-    // Invoke the new backend command to reset to default
     await invoke('reset_spec_to_default');
-    setSpecFilePath(null); // Clear the stored path in frontend
+    setSpecFilePath(null);
     isSpecFileValid.value = true;
     message.success('Spec file reset to default!');
   } catch (error: any) {
@@ -185,6 +176,33 @@ async function resetSpecFile() {
     message.error(`Failed to reset spec file: ${error}`);
   }
 }
+
+async function exportSpecFile() {
+  try {
+    // 1. Get the current spec content from the backend
+    const content: string = await invoke('get_spec_content');
+
+    // 2. Open a native "save file" dialog
+    const filePath = await save({
+      title: 'Export Spec File',
+      defaultPath: 'spec_export.ezspec',
+      filters: [{
+        name: 'EZFrameDecoder Spec',
+        extensions: ['ezspec']
+      }]
+    });
+
+    // 3. If the user selected a path (didn't cancel), write the file
+    if (filePath) {
+      await writeTextFile(filePath, content);
+      message.success(`Spec exported successfully to ${filePath}`);
+    }
+  } catch (error: any) {
+    console.error('Error exporting spec file:', error);
+    message.error(`Failed to export spec file: ${error}`);
+  }
+}
+
 </script>
 
 <style scoped>
@@ -263,6 +281,4 @@ async function resetSpecFile() {
   color: var(--n-primary-color-hover);
   text-decoration: underline;
 }
-
-
 </style>
