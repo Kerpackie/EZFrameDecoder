@@ -4,7 +4,7 @@ A high-performance desktop utility designed to effortlessly parse and interpret 
 
 This tool transforms raw data logs into human-readable information in an instant, making it ideal for engineers and developers debugging hardware protocols.
 
-![Screenshot of EZ Frame Decoder](https://placehold.co/800x450/1f2937/a0aec0?text=Your+App+Screenshot+Here)
+![Screenshot of EZ Frame Decoder](https://github.com/user-attachments/assets/5eb1b355-cdb0-415e-8a77-8c0d697cb6a5)
 
 ---
 
