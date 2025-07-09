@@ -72,7 +72,7 @@
 
       <div>
         <n-space>
-          <n-button type="primary" @click="submit" :disabled="errors.length">
+          <n-button type="primary" @click="submit" :disabled="errors.length > 0">
             {{ mode === 'edit' ? 'Save' : 'Submit' }}
           </n-button>
           <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
@@ -104,22 +104,13 @@ const emit = defineEmits(['saved', 'cancel'])
 const msg = useMessage()
 const deepCopy = (o: any) => JSON.parse(JSON.stringify(o ?? {}))
 
-function normaliseField(f: any) {}
-
 function normalise(items: any[]) {
   items.forEach((it: any) => {
     if ('fields' in it) {
       it.kind = 'group'
       if (!it.name) it.name = 'Group'
-      it.fields.forEach(normaliseField)
     } else {
       it.kind = 'switch'
-      Object.values(it.cases).forEach((c: any) =>
-          c.groups.forEach((g: any) => g.fields.forEach(normaliseField))
-      )
-      it.default?.groups.forEach((g: any) =>
-          g.fields.forEach(normaliseField)
-      )
     }
   })
 }
@@ -178,7 +169,7 @@ function addItem(kind: 'group' | 'switch') {
       fields: [{name: 'field-1', len: 2, base: 16, type: 'number', description: ''}]
     })
   } else {
-    const header = headerFields.value.find(n => n !== 'RSAddress') || headerFields.value[0] || ''
+    const header = headerFields.value.find((n: string) => n !== 'RSAddress') || headerFields.value[0] || ''
     cmd.value.items.push({
       kind: 'switch',
       switch: header,
@@ -256,7 +247,6 @@ const errors = computed(() => {
   return e
 })
 
-// --- CORRECTED PAYLOAD TRANSFORMATION ---
 function getTransformedItems() {
   const itemsCopy = deepCopy(cmd.value.items);
 
@@ -265,14 +255,9 @@ function getTransformedItems() {
   };
 
   const transformField = (field: any) => {
-    // The UI state uses `field.type` which is 'number' or 'bool'.
-    // We need to transform this into the specific string the backend expects.
     if (field.type === 'number') {
-      // Overwrite the 'type' property for the final JSON payload.
       field.type = lenToTypeMap[field.len] || 'u32';
     }
-    // If field.type is 'bool', it's already in the correct format for the backend,
-    // so no transformation is needed.
   };
 
   itemsCopy.forEach((item: any) => {
@@ -288,8 +273,7 @@ function getTransformedItems() {
     }
   });
 
-  // Remove the UI-only 'kind' property from each item before returning.
-  return itemsCopy.map(({ kind, ...rest }) => rest);
+  return itemsCopy.map(({ kind, ...rest }: { kind: string; [key: string]: any }) => rest);
 }
 
 const preview = computed(() => JSON.stringify({

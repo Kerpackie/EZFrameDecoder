@@ -72,13 +72,22 @@
 
 <script setup lang="ts">
 import { CloseOutline } from '@vicons/ionicons5'
+import type { PropType } from 'vue';
+
+interface Field {
+  name: string;
+  len: number;
+  type: 'number' | 'bool';
+  base: 10 | 16;
+  description: string;
+}
 
 const props = defineProps({
-  fields: { type: Array, required: true },
-  lockedNames: { type: Array, default: () => [] }
+  fields: { type: Array as PropType<Field[]>, required: true },
+  lockedNames: { type: Array as PropType<string[]>, default: () => [] }
 })
 
-function isLocked(f: any) {
+function isLocked(f: Field) {
   return props.lockedNames.includes(f.name)
 }
 
