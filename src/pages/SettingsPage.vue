@@ -37,20 +37,19 @@
                 <n-text depth="3">
                   Current: {{ specFilePath || 'Default (spec_override.json)' }}
                 </n-text>
-                <n-text depth="3" v-if="isAdvancedMode" style="font-size: 13px;">
-                  <br>
-                  <span>
+                <div v-if="isAdvancedMode" style="font-size: 13px;">
                   <strong>Default Override location:</strong>
-                  </span>
                   <ul style="margin: 4px 0 0 16px; padding: 0; list-style: disc;">
-                  <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.json</code></li>
-                  <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.json</code></li>
-                  <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.json</code></li>
+                    <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.json</code></li>
+                    <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.json</code></li>
+                    <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.json</code></li>
                   </ul>
-                </n-text>
+                </div>
+
                 <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
                   (Last selected file was invalid. Using default.)
                 </n-text>
+
               </div>
               <!-- Conditionally render the spec file options based on advanced mode -->
               <n-space v-if="isAdvancedMode">
@@ -126,7 +125,7 @@
 import { ref } from 'vue';
 import {
   NCard, NSwitch, NH3, NText, NDivider, NSpace, NButton, useMessage,
-  NUpload, NUploadDragger
+  NUpload
 } from 'naive-ui';
 import type { UploadFileInfo } from 'naive-ui'; // Import UploadFileInfo
 import { useSettingsStore } from '../stores/settingsStore';
