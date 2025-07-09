@@ -11,100 +11,102 @@ use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::{fs, path::PathBuf, sync::RwLock};
 use tauri::Manager;
-use tauri_plugin_dialog::init as dialog_init;
-use tauri_plugin_fs::init as fs_init;
 
 /* ─────────── Constants & Embedded Default ─────────── */
 const APP_DIR: &str = "EZFrameDecoder";
 const USER_SPEC_FILE: &str = "spec_override.ezspec";
-// The file bundled at compile‑time — now named spec_full.ezspec
 const DEFAULT_SPEC: &str = include_str!("../resources/spec_full.ezspec");
 
-/* ─────────── ensure + load helpers ─────────── */
+/* ─────────── State Management ─────────── */
 
-/// Ensures the default user spec file exists in the config directory.
-/// If it doesn't exist, it creates it from the bundled DEFAULT_SPEC.
-/// Returns the path to the user spec file.
-fn ensure_default_user_spec_path() -> std::io::Result<PathBuf> {
-    let user_path = config_dir()
-        .ok_or(std::io::ErrorKind::NotFound)?
+/// Holds the application's current state, including the loaded spec and its origin path.
+#[derive(Clone)]
+struct AppState {
+    spec: SpecFile,
+    path: PathBuf, // The path of the currently loaded spec file.
+}
+
+/// The global, thread-safe state of the application.
+static STATE: Lazy<RwLock<AppState>> = Lazy::new(|| {
+    RwLock::new(
+        load_default_spec_or_heal()
+            .expect("Fatal error: Could not load or heal the default spec file on startup."),
+    )
+});
+
+/* ─────────── Core Loading & Healing Logic ─────────── */
+
+/// Gets the path to the default user override file, creating it from the bundled
+/// spec if it doesn't exist.
+fn get_default_spec_path() -> Result<PathBuf, String> {
+    let path = config_dir()
+        .ok_or_else(|| "Could not find config directory".to_string())?
         .join(APP_DIR)
         .join(USER_SPEC_FILE);
 
-    if !user_path.exists() {
-        if let Some(parent) = user_path.parent() {
-            fs::create_dir_all(parent)?;
+    if !path.exists() {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        fs::write(&user_path, DEFAULT_SPEC)?;
-        println!("★ Copied default spec to {}", user_path.display());
+        fs::write(&path, DEFAULT_SPEC).map_err(|e| e.to_string())?;
+        println!("★ Copied bundled default spec to {}", path.display());
     }
-    Ok(user_path)
+    Ok(path)
 }
 
-/// Loads the SpecFile from a given path.
-/// If the path is None, it defaults to the user's config directory spec file.
-/// If the file at the given path is not a valid SpecFile, it returns an error.
-fn load_spec_from_disk(path: Option<PathBuf>) -> Result<SpecFile, Box<dyn std::error::Error>> {
-    let target_path = match path {
-        Some(p) => p,
-        None => ensure_default_user_spec_path()?,
-    };
-
-    println!("Attempting to load spec from: {}", target_path.display());
-
-    let text = fs::read_to_string(&target_path)?;
-    let spec = serde_json::from_str::<SpecFile>(&text)?;
-    Ok(spec)
+/// Loads a spec from a specific file path.
+fn load_spec_from_path(path: &PathBuf) -> Result<SpecFile, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read spec file at {}: {}", path.display(), e))?;
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse spec file at {}: {}", path.display(), e))
 }
 
-/* ─────────── live, hot‑reloadable spec instance ─────────── */
-// Initially load the default spec or the last valid one.
-static SPEC: Lazy<RwLock<SpecFile>> = Lazy::new(|| {
-    // Try to load from the default user spec path first
-    match load_spec_from_disk(None) {
-        Ok(spec) => RwLock::new(spec), // Wrapped in RwLock::new()
+/// Loads the default `spec_override.ezspec`. If it's corrupt, it "heals" it by
+/// overwriting it with the bundled default.
+fn load_default_spec_or_heal() -> Result<AppState, String> {
+    let path = get_default_spec_path()?;
+    let spec = match load_spec_from_path(&path) {
+        Ok(spec) => {
+            println!("Successfully loaded default user spec: {}", path.display());
+            spec
+        }
         Err(e) => {
-            eprintln!(
-                "Error loading default spec: {}. Falling back to embedded default.",
-                e
-            );
-            // If default user spec is invalid, use the embedded default directly
-            RwLock::new(
-                serde_json::from_str(DEFAULT_SPEC).expect("Failed to parse embedded default spec"),
-            ) // Wrapped in RwLock::new()
+            eprintln!("Corrupt default spec file found. Healing. Error: {}", e);
+            fs::write(&path, DEFAULT_SPEC).map_err(|e| e.to_string())?;
+            serde_json::from_str(DEFAULT_SPEC)
+                .map_err(|e| format!("FATAL: Failed to parse bundled default spec: {}", e))?
         }
-    }
-});
-
-/* ─────────── internal helpers ─────────── */
-
-/// Reloads the global SPEC instance from disk, specifically from the default user spec file.
-/// This function is called after mutations to the spec_override.ezspec or when a new spec is set.
-/// If loading fails, the SPEC remains unchanged and an error is returned.
-fn reload_spec_from_default_path() -> Result<(), String> {
-    let mut spec_lock = SPEC.write().unwrap();
-    let new_spec = load_spec_from_disk(None) // Always load from the default path
-        .map_err(|e| format!("Failed to load spec: {}", e))?;
-    *spec_lock = new_spec;
-    Ok(())
+    };
+    Ok(AppState { spec, path })
 }
 
-/// Helper to perform an operation that mutates the spec file on disk and reloads it.
-/// Ensures the default user spec file exists before attempting to read/write.
+/* ─────────── Internal Helpers ─────────── */
+
+/// A generic function to perform mutations. It locks the current state,
+/// applies an operation, and then saves the result back to the original file path.
 fn mutating_spec<F>(op: F) -> Result<(), String>
 where
     F: FnOnce(&mut SpecFile) -> Result<(), String>,
 {
-    // Ensure we are working with the default user spec file for mutations
-    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
-    let mut spec: SpecFile =
-        serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-    op(&mut spec)?;
-    fs::write(&path, serde_json::to_string_pretty(&spec).unwrap()).map_err(|e| e.to_string())?;
-    reload_spec_from_default_path()?; // Reload from the default path after mutation
+    // 1. Get a write lock on the global state.
+    let mut state_lock = STATE.write().unwrap();
+
+    // 2. Apply the mutation directly to the `spec` within the locked state.
+    op(&mut state_lock.spec)?;
+
+    // 3. Serialize the *entire*, now-mutated, in-memory spec to a JSON string.
+    let new_content = serde_json::to_string_pretty(&state_lock.spec)
+        .map_err(|e| format!("Failed to serialize spec: {}", e))?;
+
+    // 4. Write the new content back to the *original path* stored in the state.
+    fs::write(&state_lock.path, &new_content)
+        .map_err(|e| format!("Failed to write spec to file: {}", e))?;
+
+    println!("Successfully mutated and persisted spec at {}", state_lock.path.display());
     Ok(())
 }
+
 
 fn clean_frame(line: &str) -> &str {
     line.split_whitespace().next().unwrap_or("")
@@ -127,76 +129,80 @@ fn validate_family_properties(fam: &Family) -> Result<(), String> {
     Ok(())
 }
 
-/* ─────────── Tauri commands ─────────── */
+/* ─────────── Tauri Commands ─────────── */
 
-/// Returns the current spec file content as a pretty-printed JSON string.
+/// Loads a spec from a user-selected file path and sets it as the active spec.
 #[tauri::command]
-fn get_spec_content() -> Result<String, String> {
-    let spec = SPEC.read().unwrap();
-    serde_json::to_string_pretty(&*spec).map_err(|e| format!("Failed to serialize spec: {}", e))
+fn load_spec(path_str: String) -> Result<(), String> {
+    let path = PathBuf::from(path_str);
+    let spec = load_spec_from_path(&path)?;
+    let mut state_lock = STATE.write().unwrap();
+    *state_lock = AppState { spec, path };
+    Ok(())
 }
 
-/// Decodes a single frame string using the currently loaded spec.
+/// Resets the active spec to the default `spec_override.ezspec`.
+#[tauri::command]
+fn reset_spec_to_default() -> Result<(), String> {
+    let new_state = load_default_spec_or_heal()?;
+    let mut state_lock = STATE.write().unwrap();
+    *state_lock = new_state;
+    Ok(())
+}
+
+/// Returns the currently loaded spec families.
+#[tauri::command]
+fn get_families() -> Result<Vec<Family>, String> {
+    Ok(STATE.read().unwrap().spec.families.clone())
+}
+
+/// Returns the commands for a specific family from the currently loaded spec.
+#[tauri::command]
+fn get_commands(family_start: String) -> Result<Vec<Command>, String> {
+    let state = STATE.read().unwrap();
+    let fam = state.spec
+        .families
+        .iter()
+        .find(|f| f.start == family_start)
+        .ok_or("Family not found")?;
+    Ok(fam.commands.clone())
+}
+
+/// Returns the entire content of the currently loaded spec file.
+#[tauri::command]
+fn get_spec_content() -> Result<String, String> {
+    let state = STATE.read().unwrap();
+    serde_json::to_string_pretty(&state.spec).map_err(|e| format!("Failed to serialize spec: {}", e))
+}
+
+/// Decodes a single frame using the currently active spec.
 #[tauri::command]
 fn decode_frame(frame: String) -> Result<Value, String> {
     let trimmed = clean_frame(&frame);
     if trimmed.is_empty() {
         return Err("Empty line".into());
     }
-    let spec = SPEC.read().unwrap();
-    decode(trimmed, &*spec).map_err(|e| e.to_string())
+    let state = STATE.read().unwrap();
+    decode(trimmed, &state.spec).map_err(|e| e.to_string())
 }
 
-/// Decodes multiple frames from a text string, line by line.
+/// Decodes multiple frames using the currently active spec.
 #[tauri::command]
 fn batch_decode(text: String) -> Result<Vec<Value>, String> {
-    let spec = SPEC.read().unwrap();
+    let state = STATE.read().unwrap();
     text.lines()
         .filter_map(|raw| {
             let cleaned = clean_frame(raw.trim());
             if cleaned.is_empty() {
                 None
             } else {
-                Some(decode(cleaned, &*spec).map_err(|e| e.to_string()))
+                Some(decode(cleaned, &state.spec).map_err(|e| e.to_string()))
             }
         })
         .collect()
 }
 
-/// Sets the application's active spec from provided JSON content.
-/// This content is validated and then written to the spec_override.ezspec file.
-#[tauri::command]
-fn set_spec_from_content(content: String) -> Result<(), String> {
-    // First, try to parse the content to validate it as a SpecFile
-    let _ = serde_json::from_str::<SpecFile>(&content)
-        .map_err(|e| format!("Invalid spec file content: {}", e))?;
-
-    // If valid, write it to the user's spec_override.ezspec file
-    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-
-    // Reload the in-memory SPEC from the updated file
-    reload_spec_from_default_path()?;
-    println!("Spec file updated from provided content.");
-    Ok(())
-}
-
-/// Resets the application's spec to the bundled default.
-/// This writes the DEFAULT_SPEC content to spec_override.ezspec.
-#[tauri::command]
-fn reset_spec_to_default() -> Result<(), String> {
-    let path = ensure_default_user_spec_path().map_err(|e| e.to_string())?;
-    fs::write(&path, DEFAULT_SPEC).map_err(|e| e.to_string())?;
-    reload_spec_from_default_path()?;
-    println!("Spec file reset to default.");
-    Ok(())
-}
-
-// ─────────── Family CRUD ───────────
-#[tauri::command]
-fn get_families() -> Result<Vec<Family>, String> {
-    Ok(SPEC.read().unwrap().families.clone())
-}
+// ─────────── CRUD Commands (now use mutating_spec) ───────────
 
 #[tauri::command]
 fn create_family(fam: Family) -> Result<(), String> {
@@ -214,17 +220,14 @@ fn create_family(fam: Family) -> Result<(), String> {
 fn update_family(original_start: String, fam: Family) -> Result<(), String> {
     mutating_spec(|spec| {
         validate_family_properties(&fam)?;
-        // If the start character was changed, check if the new one conflicts with any *other* family.
         if original_start != fam.start && spec.families.iter().any(|f| f.start == fam.start) {
             return Err("Another family with the new start character already exists.".into());
         }
-
         let slot = spec
             .families
             .iter_mut()
             .find(|f| f.start == original_start)
             .ok_or("Family to update not found (using original start char).")?;
-
         *slot = fam;
         Ok(())
     })
@@ -240,18 +243,6 @@ fn delete_family(start: String) -> Result<(), String> {
         }
         Ok(())
     })
-}
-
-// ─────────── Command CRUD (scoped to family) ───────────
-#[tauri::command]
-fn get_commands(family_start: String) -> Result<Vec<Command>, String> {
-    let spec = SPEC.read().unwrap();
-    let fam = spec
-        .families
-        .iter()
-        .find(|f| f.start == family_start)
-        .ok_or("Family not found")?;
-    Ok(fam.commands.clone())
 }
 
 #[tauri::command]
@@ -285,22 +276,17 @@ fn update_command(
             .iter_mut()
             .find(|f| f.start == family_start)
             .ok_or("Family not found")?;
-
         if cmd.letter.trim().is_empty() {
             return Err("Command letter cannot be empty.".into());
         }
-
-        // If the letter was changed, check for conflicts with other commands in the same family.
         if original_letter != cmd.letter && fam.commands.iter().any(|c| c.letter == cmd.letter) {
             return Err("Another command with that letter already exists in this family.".into());
         }
-
         let slot = fam
             .commands
             .iter_mut()
             .find(|c| c.letter == original_letter)
             .ok_or("Command to update not found (using original letter).")?;
-
         *slot = cmd;
         Ok(())
     })
@@ -317,34 +303,32 @@ fn delete_command(family_start: String, letter: String) -> Result<(), String> {
         let before = fam.commands.len();
         fam.commands.retain(|c| c.letter != letter);
         if fam.commands.len() == before {
-            return Err("Command not found".into());
+            return Err("Family not found".into());
         }
         Ok(())
     })
 }
 
-/* ─────────── Application entry point ─────────── */
+/* ─────────── Application Entry Point ─────────── */
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(dialog_init())
-        .plugin(fs_init())
         .invoke_handler(tauri::generate_handler![
+            // Spec file management
+            load_spec,
+            reset_spec_to_default,
+            get_spec_content,
             // Decode
             decode_frame,
             batch_decode,
-            // Spec file management
-            get_spec_content,
-            set_spec_from_content,
-            reset_spec_to_default,
-            // Family CRUD
+            // Family & Command Read
             get_families,
+            get_commands,
+            // Family & Command Write (mutations)
             create_family,
             update_family,
             delete_family,
-            // Command CRUD
-            get_commands,
             append_command,
             update_command,
             delete_command,
