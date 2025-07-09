@@ -65,7 +65,6 @@ import MainContent from './MainContent.vue'; // Import the new MainContent compo
 import {
   CodeSlashOutline,
   BuildOutline,
-  InformationCircleOutline,
   EyeOutline,
   SettingsOutline
 } from "@vicons/ionicons5";

@@ -9,7 +9,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
 
 const message = useMessage();
-const { specFilePath, setSpecFilePath } = useSettingsStore();
+const { setSpecFilePath } = useSettingsStore();
 
 // --- Initial Spec File Load ---
 onMounted(async () => {
