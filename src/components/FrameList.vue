@@ -40,13 +40,13 @@ import { useSharedDecode } from "../composables/useSharedDecode";
 
 const message = useMessage();
 const store   = useFrameStore();
-const { run } = useSharedDecode();       // shared decoder
+const { run } = useSharedDecode();
 
 /* Component State */
 const dummy = ref<UploadFileInfo[]>([]);
 const families = ref<any[]>([]);
 
-/* Fetch families on mount to know valid prefixes */
+/* Fetch families on mount to know valid prefixes and terminators */
 onMounted(async () => {
   try {
     families.value = await invoke('get_families');
@@ -62,9 +62,6 @@ function extOK(name = "") {
       name.toLowerCase().endsWith(e)
   );
 }
-function clean(line = "") {
-  return line.split(/\s+/)[0];           // cut after first space
-}
 
 /* Validate & load file */
 function validateFile(file: UploadFileInfo) {
@@ -79,21 +76,44 @@ async function onFile(info: { file: UploadFileInfo }) {
   const txt = await info.file.file?.text();
   if (!txt) return;
 
-  const validStarts = families.value.map(f => f.start).filter(Boolean);
-  if (validStarts.length === 0) {
+  if (families.value.length === 0) {
     message.error("No valid frame families defined in the spec.");
     return;
   }
 
-  const list =
-      txt.split(/[\r\n]+/)
-          .map((l) => clean(l.trim()))
-          .filter((f) => validStarts.some(start => f.startsWith(start)) && f.length) || [];
+  const allFrames: string[] = [];
+  const lines = txt.split(/[\r\n]+/);
 
-  if (list.length === 0) {
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    const parts = line.split(/[\s,\|	]+/);
+
+    for (const part of parts) {
+      const trimmedPart = part.trim();
+
+      // Find which family this part belongs to, if any
+      const matchingFamily = families.value.find(f => trimmedPart.startsWith(f.start));
+
+      if (matchingFamily) {
+        // Use the terminator from the specific family
+        const startIndex = 0; // We know it starts with the prefix
+        const lastEndIndex = trimmedPart.lastIndexOf(matchingFamily.terminator);
+
+        if (lastEndIndex > startIndex) {
+          const potentialFrame = trimmedPart.substring(startIndex, lastEndIndex + matchingFamily.terminator.length);
+          allFrames.push(potentialFrame);
+          // Assuming one frame per line, we can break after finding the first one
+          break;
+        }
+      }
+    }
+  }
+
+  if (allFrames.length === 0) {
     message.warning("No valid frames found in the file matching the defined families.");
   }
-  store.setFrames(list);
+  store.setFrames(allFrames);
 }
 
 /* Click handler */
@@ -120,7 +140,6 @@ watch(
   flex: 1 1 auto;
   overflow-y: auto;
   scrollbar-width: none;
-  text-align: center;
 }
 .list-wrapper::-webkit-scrollbar {
   display: none;
