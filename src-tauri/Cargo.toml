@@ -1,6 +1,6 @@
 [package]
 name = "EZFrameDecoder"
-version = "1.0.0"
+version = "1.0.1"
 description = "An application for decoding simple frame formats."
 authors = ["Kerpackie"]
 edition = "2021"
