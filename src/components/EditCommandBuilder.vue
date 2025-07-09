@@ -60,7 +60,7 @@
     <n-text depth="3" class="mb-2">Remaining hex chars: {{ remaining }}</n-text>
     <n-code :code="preview" language="json" class="mb-4" />
 
-    <n-button type="primary" @click="submit" :disabled="errors.length">
+    <n-button type="primary" @click="submit" :disabled="errors.length > 0">
       Save Changes
     </n-button>
     <n-button class="ml-2" @click="$emit('cancel')">Cancel</n-button>
