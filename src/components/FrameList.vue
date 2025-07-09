@@ -145,4 +145,8 @@ watch(
   display: none;
 }
 
+.frame-list{
+  text-align: center;
+}
+
 </style>

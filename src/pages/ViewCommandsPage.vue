@@ -10,7 +10,7 @@
         v-model:collapsed="siderCollapsed"
     >
       <div class="sider-content" v-if="!siderCollapsed">
-        <n-h4 style="padding: 0 16px; flex-shrink: 0;">Command Families</n-h4>
+        <n-h4 class="sider-head">Command Families</n-h4>
         <n-menu
             :options="familyMenuOptions"
             :value="selectedFamily?.start"
@@ -142,5 +142,11 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   height: 100%;
+}
+
+.sider-head{
+  flex-shrink: 0;
+  text-align: center;
+  padding: 1rem 1rem 0;
 }
 </style>
