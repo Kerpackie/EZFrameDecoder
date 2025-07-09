@@ -75,7 +75,6 @@ const icon = (comp: any) => () => h(NIcon, null, {default: () => h(comp)});
 const router = useRouter();
 const route = useRoute();
 const { isAdvancedMode, isDarkMode } = useSettingsStore();
-// Removed: const message = useMessage(); // Moved to MainContent.vue
 
 // --- THEME-AWARE SCROLLBAR ---
 watchEffect(() => {
@@ -84,9 +83,6 @@ watchEffect(() => {
   document.documentElement.style.setProperty('--scrollbar-thumb-color', thumbColor);
   document.documentElement.style.setProperty('--scrollbar-track-color', trackColor);
 });
-
-// Removed: Initial Spec File Load logic // Moved to MainContent.vue
-
 
 const menuOptions = computed(() => {
   const standardMenu = [
@@ -178,7 +174,6 @@ watch(isMedium, val => (collapsed.value = val));
 .main {
   height: 100%;
   overflow: auto;
-  padding: 1rem;
 }
 
 .main :deep(.n-layout) {

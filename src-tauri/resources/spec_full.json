@@ -774,14 +774,6 @@
           ]
         }
       ]
-    },
-    {
-      "name": "SPI",
-      "description": "SPI Family",
-      "start": "$",
-      "terminator": ">",
-      "frame_len": 23,
-      "commands": []
     }
   ]
 }

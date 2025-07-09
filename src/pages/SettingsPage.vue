@@ -1,69 +1,103 @@
 <template>
-  <n-card title="Application Settings">
-    <n-space vertical size="large">
-      <!-- Advanced Mode Setting -->
-      <div class="setting-row">
-        <div class="setting-info">
-          <n-h3 style="margin: 0;">Advanced Mode</n-h3>
-          <n-text depth="3">
-            Enables full editing capabilities for command families and their specifications.
-          </n-text>
-        </div>
-        <n-switch :value="isAdvancedMode" @update:value="toggleAdvancedMode" />
+  <div class="page-padding">
+    <n-space vertical>
+      <div class="settings-wrapper">
+        <n-card title="Application Settings">
+          <n-space vertical size="large">
+            <!-- Advanced Mode Setting -->
+            <div class="setting-row">
+              <div class="setting-info">
+                <n-h3 style="margin: 0;">Advanced Mode</n-h3>
+                <n-text depth="3">
+                  Enables full editing capabilities for command families and their specifications.
+                </n-text>
+              </div>
+              <n-switch :value="isAdvancedMode" @update:value="toggleAdvancedMode" />
+            </div>
+
+            <n-divider />
+
+            <!-- Dark Mode Setting -->
+            <div class="setting-row">
+              <div class="setting-info">
+                <n-h3 style="margin: 0;">Dark Mode</n-h3>
+                <n-text depth="3">
+                  Switches the application to a dark color scheme.
+                </n-text>
+              </div>
+              <n-switch :value="isDarkMode" @update:value="toggleDarkMode" />
+            </div>
+
+            <n-divider />
+
+            <!-- Spec File Location Setting -->
+            <div class="setting-row">
+              <div class="setting-info">
+                <n-h3 style="margin: 0;">Spec File Location</n-h3>
+                <n-text depth="3">
+                  Current: {{ specFilePath || 'Default (spec_override.json)' }}
+                </n-text>
+                <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
+                  (Last selected file was invalid. Using default.)
+                </n-text>
+              </div>
+              <!-- Conditionally render the spec file options based on advanced mode -->
+              <n-space vertical v-if="isAdvancedMode">
+                <!-- File uploader for spec file, styled as a button -->
+                <n-upload
+                    v-model:file-list="dummySpecFile"
+                    :default-upload="false"
+                    accept=".json"
+                    :max="1"
+                    :before-upload="validateSpecFile"
+                    :on-change="onSpecFileChange"
+                    list-type="text"
+                    class="spec-upload-button-wrapper"
+                >
+                  <n-upload-dragger class="spec-upload-button">
+                    Choose Spec File
+                  </n-upload-dragger>
+                </n-upload>
+
+                <n-button @click="resetSpecFile" :disabled="!specFilePath">
+                  Reset to Default
+                </n-button>
+              </n-space>
+            </div>
+
+          </n-space>
+        </n-card>
       </div>
-
-      <n-divider />
-
-      <!-- Dark Mode Setting -->
-      <div class="setting-row">
-        <div class="setting-info">
-          <n-h3 style="margin: 0;">Dark Mode</n-h3>
-          <n-text depth="3">
-            Switches the application to a dark color scheme.
-          </n-text>
-        </div>
-        <n-switch :value="isDarkMode" @update:value="toggleDarkMode" />
+      <div class="settings-wrapper">
+        <n-card title="About EZ Frame Decoder">
+          <n-space vertical>
+            <n-p>
+              <strong>EZ Frame Decoder</strong> is a high-performance utility designed to effortlessly parse and interpret data frames.
+              Built for engineers and developers who need clarity and speed when debugging, this tool transforms raw data logs into human-readable information in an instant.
+            </n-p>
+            <n-h4 style="margin-bottom: 0;">Key Features:</n-h4>
+            <n-ul>
+              <n-li><strong>Dynamic Decoding:</strong> Paste raw frames for instant, real-time decoding based on the active specification.</n-li>
+              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family JSON spec format.</n-li>
+              <n-li><strong>Advanced Editor:</strong> A dedicated, feature-rich editor for creating and managing command families and their unique protocols.</n-li>
+              <n-li><strong>Flexible Overrides:</strong> Easily load and test different spec files for different hardware or software versions.</n-li>
+              <n-li><strong>Modern Interface:</strong> A clean, themeable UI with both light and dark modes for your comfort.</n-li>
+            </n-ul>
+            <n-divider />
+            <div class="footer-container">
+              <n-text depth="3">
+                Version 1.0.0 | Crafted with ❤️ using Rust, Tauri, and Vue.js.
+                <span class="separator"> | </span>
+                <a href="https://github.com/Kerpackie/EZFrameDecoder" target="_blank" class="footer-link">GitHub</a>
+                <span class="separator"> | </span>
+                <a href="https://github.com/Kerpackie/EZFrameDecoder/blob/main/LICENSE" target="_blank" class="footer-link">Released Under Apache 2.0 Licence</a>
+              </n-text>
+            </div>
+          </n-space>
+        </n-card>
       </div>
-
-      <n-divider />
-
-      <!-- Spec File Location Setting -->
-      <div class="setting-row">
-        <div class="setting-info">
-          <n-h3 style="margin: 0;">Spec File Location</n-h3>
-          <n-text depth="3">
-            Current: {{ specFilePath || 'Default (spec_override.json)' }}
-          </n-text>
-          <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
-            (Last selected file was invalid. Using default.)
-          </n-text>
-        </div>
-        <!-- Conditionally render the spec file options based on advanced mode -->
-        <n-space vertical v-if="isAdvancedMode">
-          <!-- File uploader for spec file, styled as a button -->
-          <n-upload
-              v-model:file-list="dummySpecFile"
-              :default-upload="false"
-              accept=".json"
-              :max="1"
-              :before-upload="validateSpecFile"
-              :on-change="onSpecFileChange"
-              list-type="text"
-              class="spec-upload-button-wrapper"
-          >
-            <n-upload-dragger class="spec-upload-button">
-              Choose Spec File
-            </n-upload-dragger>
-          </n-upload>
-
-          <n-button @click="resetSpecFile" :disabled="!specFilePath">
-            Reset to Default
-          </n-button>
-        </n-space>
-      </div>
-
     </n-space>
-  </n-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -138,6 +172,16 @@ async function resetSpecFile() {
 </script>
 
 <style scoped>
+.page-padding {
+  padding: 1rem;
+}
+
+.settings-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* Replicates n-space large */
+}
+
 .setting-row {
   display: flex;
   justify-content: space-between;
@@ -181,4 +225,28 @@ async function resetSpecFile() {
 .spec-upload-button-wrapper :deep(.n-upload-file-list) {
   display: none;
 }
+
+.about-card{
+  line-height: 1.6;
+}
+
+.footer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  text-align: center;
+}
+.footer-link {
+  color: var(--n-text-color-3);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.footer-link:hover {
+  color: var(--n-primary-color-hover);
+  text-decoration: underline;
+}
+
+
 </style>
