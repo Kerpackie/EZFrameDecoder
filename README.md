@@ -93,41 +93,217 @@ The `.ezspec` file is a JSON object that defines how frames are decoded. The str
 {
   "families": [
     {
-      "name": "Demo Family",
-      "description": "A Demonstration Family of Commands",
+      "name": "Demo",
+      "description": "A demo family of commands.",
       "start": "!",
       "terminator": ">",
       "frame_len": 23,
       "commands": [
         {
           "letter": "A",
-          "description": "Configuration/control commands",
+          "description": "A demonstration command, showcasing different aspects!",
           "items": [
             {
-              "name": "header",
+              "name": "Header",
               "fields": [
-                { "name": "RSAddress", "len": 2, "base": 16, "type": "u8" },
-                { "name": "Opcode", "len": 4, "base": 16, "type": "u16" }
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on bus"
+                }
               ]
             },
             {
-              "switch": "Opcode",
+              "name": "Payload",
+              "fields": [
+                {
+                  "name": "NumericHexData",
+                  "len": 5,
+                  "base": 16,
+                  "type": "u32",
+                  "description": "A numeric hex field with 5 character width."
+                },
+                {
+                  "name": "NumericDecimalData",
+                  "len": 4,
+                  "base": 10,
+                  "type": "u16",
+                  "description": "A numeric decimal field with 4 character width."
+                },
+                {
+                  "name": "SingleWideBoolean",
+                  "len": 1,
+                  "base": 16,
+                  "type": "bool",
+                  "description": "A single character wide Boolean flag."
+                },
+                {
+                  "name": "DoubleWideBoolean",
+                  "len": 2,
+                  "base": 16,
+                  "type": "bool",
+                  "description": "A two character wide Boolean flag."
+                },
+                {
+                  "name": "Padding",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "A 4 character padding."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "description": "A demonstration of a command that switches based on an OPCode",
+          "items": [
+            {
+              "name": "Header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on bus"
+                },
+                {
+                  "name": "OPCode",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "The OPCode which we will use to switch our commands."
+                }
+              ]
+            },
+            {
+              "switch": "OPCode",
               "cases": {
-                "0x0903": {
-                  "description": "Set program-ID on board",
+                "0x0000": {
+                  "description": "OPCode 0000",
+                  "groups": [
+                    {
+                      "name": "Group",
+                      "fields": [
+                        {
+                          "name": "field-1",
+                          "len": 6,
+                          "base": 16,
+                          "type": "u24",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-2",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-3",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-4",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x1234": {
+                  "description": "Case 1234",
                   "groups": [
                     {
                       "name": "payload",
                       "fields": [
-                        { "name": "Reserved", "len": 12, "base": 16, "type": "u64" }
+                        {
+                          "name": "field-1",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-2",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-3",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-4",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-5",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-6",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        }
                       ]
                     }
                   ]
                 }
               },
               "default": {
-                "description": "Unrecognised C-opcode",
-                "groups": [ ]
+                "description": "Default Case",
+                "groups": [
+                  {
+                    "name": "payload",
+                    "fields": [
+                      {
+                        "name": "field-1",
+                        "len": 10,
+                        "base": 16,
+                        "type": "u32",
+                        "description": "Padding"
+                      },
+                      {
+                        "name": "field-2",
+                        "len": 2,
+                        "base": 16,
+                        "type": "u8",
+                        "description": ""
+                      },
+                      {
+                        "name": "field-3",
+                        "len": 2,
+                        "base": 16,
+                        "type": "u8",
+                        "description": ""
+                      }
+                    ]
+                  }
+                ]
               }
             }
           ]
