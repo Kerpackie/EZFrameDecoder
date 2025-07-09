@@ -35,53 +35,34 @@
               <div class="setting-info">
                 <n-h3 style="margin: 0;">Spec File Location</n-h3>
                 <n-text depth="3">
-                  Current: {{ specFilePath || 'Default (spec_override.json)' }}
+                  Current: {{ specFilePath || 'Default (spec_override.ezspec)' }}
                 </n-text>
-                <n-text depth="3" v-if="isAdvancedMode" style="font-size: 13px;">
-                  <br>
-                  <span>
+                <div v-if="isAdvancedMode" style="font-size: 13px;">
                   <strong>Default Override location:</strong>
-                  </span>
                   <ul style="margin: 4px 0 0 16px; padding: 0; list-style: disc;">
-                  <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.json</code></li>
-                  <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.json</code></li>
-                  <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.json</code></li>
+                    <li><strong>Windows</strong>: <code>%APPDATA%/EZFrameDecoder/spec_override.ezspec</code></li>
+                    <li><strong>macOS</strong>: <code>~/Library/Application Support/EZFrameDecoder/spec_override.ezspec</code></li>
+                    <li><strong>Linux</strong>: <code>~/.config/EZFrameDecoder/spec_override.ezspec</code></li>
                   </ul>
-                </n-text>
+                </div>
+
                 <n-text depth="3" v-if="specFilePath && !isSpecFileValid" type="error">
                   (Last selected file was invalid. Using default.)
                 </n-text>
+
               </div>
               <!-- Conditionally render the spec file options based on advanced mode -->
               <n-space v-if="isAdvancedMode">
-                <!-- File uploader for spec file, styled as a button -->
-                <n-upload
-                    v-model:file-list="dummySpecFile"
-                    :default-upload="false"
-                    accept=".json"
-                    :max="1"
-                    :before-upload="validateSpecFile"
-                    :on-change="onSpecFileChange"
-                    list-type="text"
-                    class="spec-upload-button-wrapper"
-                >
-                  <n-button type="primary" class="spec-upload-btn" @click="$refs.specUploader?.open()">
-                    Choose Spec File
-                  </n-button>
-                  <n-upload
-                    ref="specUploader"
-                    v-model:file-list="dummySpecFile"
-                    :default-upload="false"
-                    accept=".json"
-                    :max="1"
-                    :before-upload="validateSpecFile"
-                    :on-change="onSpecFileChange"
-                    list-type="text"
-                    style="display: none;"
-                  />
-                </n-upload>
+                <!-- CORRECTED: Use a simple button to trigger the Tauri dialog -->
+                <n-button @click="chooseAndLoadSpecFile" type="primary">
+                  Choose Spec File
+                </n-button>
 
-                <n-button @click="resetSpecFile" :disabled="!specFilePath">
+                <n-button @click="exportSpecFile" type="default">
+                  Export Spec
+                </n-button>
+
+                <n-button @click="resetSpecFile">
                   Reset to Default
                 </n-button>
               </n-space>
@@ -100,7 +81,7 @@
             <n-h4 style="margin-bottom: 0;">Key Features:</n-h4>
             <n-ul>
               <n-li><strong>Dynamic Decoding:</strong> Paste raw frames for instant, real-time decoding based on the active specification.</n-li>
-              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family JSON spec format.</n-li>
+              <n-li><strong>Customizable Specs:</strong> Define your own command structures with a powerful, multi-family EZSpec format.</n-li>
               <n-li><strong>Advanced Editor:</strong> A dedicated, feature-rich editor for creating and managing command families and their unique protocols.</n-li>
               <n-li><strong>Flexible Overrides:</strong> Easily load and test different spec files for different hardware or software versions.</n-li>
               <n-li><strong>Modern Interface:</strong> A clean, themeable UI with both light and dark modes for your comfort.</n-li>
@@ -126,69 +107,82 @@
 import { ref } from 'vue';
 import {
   NCard, NSwitch, NH3, NText, NDivider, NSpace, NButton, useMessage,
-  NUpload, NUploadDragger
 } from 'naive-ui';
-import type { UploadFileInfo } from 'naive-ui'; // Import UploadFileInfo
 import { useSettingsStore } from '../stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
+import { save, open } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 const message = useMessage();
 const { isAdvancedMode, toggleAdvancedMode, isDarkMode, toggleDarkMode, specFilePath, setSpecFilePath } = useSettingsStore();
-
-// This ref will track if the currently displayed specFilePath is valid and loaded by the backend.
-// It's primarily for UI feedback, the backend handles the actual fallback.
 const isSpecFileValid = ref(true);
 
-// Dummy file list for n-upload
-const dummySpecFile = ref<UploadFileInfo[]>([]);
-
-// Helper to validate file extension
-function validateSpecFile(file: UploadFileInfo): boolean {
-  if (!file.name.toLowerCase().endsWith('.json')) {
-    message.error('Only .json files are allowed for spec files.');
-    return false;
-  }
-  return true;
-}
-
-// Handler for when a spec file is selected/dropped
-async function onSpecFileChange(info: { file: UploadFileInfo }) {
-  const file = info.file.file;
-  if (!file) return;
-
+// This function uses the Tauri dialog plugin for a reliable way to get a file path.
+async function chooseAndLoadSpecFile() {
   try {
-    const content = await file.text(); // Read file content as string on frontend
+    // 1. Open the native file dialog from Tauri.
+    const selectedPath = await open({
+      multiple: false,
+      filters: [{
+        name: 'EZFrameDecoder Spec',
+        extensions: ['ezspec']
+      }]
+    });
 
-    // Invoke backend command with the file content
-    await invoke('set_spec_from_content', { content: content });
+    // 2. Check if the user selected a file (the result is a string path).
+    if (typeof selectedPath === 'string' && selectedPath) {
+      // 3. Call the backend with the guaranteed file path.
+      await invoke('load_spec', { pathStr: selectedPath });
 
-    // Update frontend store with the original file path for display
-    setSpecFilePath(file.path || file.name); // Use file.path if available (Tauri), fallback to file.name
-    isSpecFileValid.value = true;
-    message.success('Spec file loaded and updated successfully!');
+      // 4. Update the UI to show the new path.
+      setSpecFilePath(selectedPath);
+      isSpecFileValid.value = true;
+      message.success(`Spec file loaded successfully!`);
+    }
+    // If the user cancels, `selectedPath` will be null, and we do nothing.
   } catch (error: any) {
     console.error('Error loading spec file:', error);
-    isSpecFileValid.value = false; // Mark as invalid for UI feedback
+    isSpecFileValid.value = false;
     message.error(`Failed to load spec file: ${error}`);
-    // If loading fails, revert specFilePath in store to null to indicate default/invalid
-    setSpecFilePath(null);
-  } finally {
-    // Clear the file list in the uploader after processing
-    dummySpecFile.value = [];
+    // If loading a custom file fails, it's safest to reset to the default.
+    await resetSpecFile();
   }
 }
 
-// Function to handle resetting to the default spec file
+// This function correctly resets the state in the UI.
 async function resetSpecFile() {
   try {
-    // Invoke the new backend command to reset to default
     await invoke('reset_spec_to_default');
-    setSpecFilePath(null); // Clear the stored path in frontend
+    // Set path to null to indicate the default spec is loaded.
+    setSpecFilePath(null);
     isSpecFileValid.value = true;
-    message.success('Spec file reset to default!');
+    message.success('Spec has been reset to the default!');
   } catch (error: any) {
     console.error('Error resetting spec file:', error);
     message.error(`Failed to reset spec file: ${error}`);
+  }
+}
+
+// This function uses the Tauri dialog plugin for saving files.
+async function exportSpecFile() {
+  try {
+    const content: string = await invoke('get_spec_content');
+    const filePath = await save({
+      title: 'Export Spec File',
+      defaultPath: 'spec_export.ezspec',
+      filters: [{
+        name: 'EZFrameDecoder Spec',
+        extensions: ['ezspec']
+      }]
+    });
+
+    if (filePath) {
+      await writeTextFile(filePath, content);
+      message.success(`Spec exported successfully to ${filePath}`);
+    }
+  } catch (error: any) {
+    console.error('Error exporting spec file:', error);
+    message.error(`Failed to export spec file: ${error}`);
   }
 }
 </script>
@@ -213,41 +207,6 @@ async function resetSpecFile() {
   margin-right: 2rem;
 }
 
-/* Styles to make n-upload-dragger look like a button */
-.spec-upload-button-wrapper :deep(.n-upload-dragger) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Basic button styling */
-  padding: 8px 15px; /* Adjust padding to match NButton */
-  border-radius: 6px; /* Match NButton's border-radius */
-  font-size: 14px; /* Match NButton's font size */
-  font-weight: 500; /* Match NButton's font weight */
-  cursor: pointer;
-  transition: background-color 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
-
-  /* Mimic Naive UI primary button colors */
-  background-color: var(--n-primary-color);
-  color: var(--n-button-text-color); /* Usually white or a light color for primary */
-  border: 1px solid var(--n-primary-color); /* Solid border matching background */
-  box-shadow: var(--n-box-shadow); /* Optional: Add a subtle shadow */
-}
-
-.spec-upload-button-wrapper :deep(.n-upload-dragger:hover) {
-  background-color: var(--n-primary-color-hover);
-  border-color: var(--n-primary-color-hover);
-}
-
-.spec-upload-button-wrapper :deep(.n-upload-dragger:active) {
-  background-color: var(--n-primary-color-pressed);
-  border-color: var(--n-primary-color-pressed);
-}
-
-/* Hide the default file list if it appears */
-.spec-upload-button-wrapper :deep(.n-upload-file-list) {
-  display: none;
-}
-
 .about-card{
   line-height: 1.6;
 }
@@ -269,6 +228,4 @@ async function resetSpecFile() {
   color: var(--n-primary-color-hover);
   text-decoration: underline;
 }
-
-
 </style>

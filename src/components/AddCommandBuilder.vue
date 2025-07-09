@@ -71,11 +71,13 @@
       <n-code :code="preview" language="json" class="mb-4"/>
 
       <div>
-        <n-button type="primary" @click="submit" :disabled="errors.length">
-          {{ mode === 'edit' ? 'Save' : 'Submit' }}
-        </n-button>
-        <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
-        <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
+        <n-space>
+          <n-button type="primary" @click="submit" :disabled="errors.length">
+            {{ mode === 'edit' ? 'Save' : 'Submit' }}
+          </n-button>
+          <n-button v-if="mode==='create'" class="ml-2" @click="reset">Reset</n-button>
+          <n-button v-else class="ml-2" @click="$emit('cancel')">Cancel</n-button>
+        </n-space>
       </div>
     </n-space>
   </n-space>

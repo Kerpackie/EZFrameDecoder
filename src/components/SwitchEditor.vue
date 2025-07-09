@@ -3,7 +3,11 @@
     <!-- ────────────────── Switch key ────────────────── -->
     <n-form label-width="100" class="mb-3">
       <n-form-item label="Switch Key">
-        <n-input v-model:value="item.switch" placeholder="e.g. Opcode" />
+        <n-select
+            v-model:value="item.switch"
+            :options="selectOptions"
+            placeholder="Select Header Field"
+        />
       </n-form-item>
     </n-form>
 
@@ -118,8 +122,9 @@
     <div class="mt-3 flex gap-2">
       <n-input
           v-model:value="newCaseKey"
-          placeholder="New case key (e.g. 0x01)"
+          placeholder="New case key (e.g. 01 or ABCD)"
           size="small"
+          @keyup.enter="addCase"
       />
       <n-button size="small" @click="addCase">Add Case</n-button>
       <n-button size="small" @click="addDefault" :disabled="!!item.default">
@@ -130,9 +135,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { CloseOutline } from '@vicons/ionicons5'
 import FieldEditor from './FieldEditor.vue'
+import { NCard, NForm, NFormItem, NInput, NTabs, NTabPane, NIcon, NButton, useMessage, NSelect } from 'naive-ui'
 
 /* ---------- props ---------- */
 const props = defineProps<{
@@ -142,6 +148,7 @@ const props = defineProps<{
     cases: Record<string, SwitchCase>
     default: SwitchCase | null
   }
+  headerFields: string[]
   onRemove?: () => void
 }>()
 
@@ -156,11 +163,31 @@ interface Group {
 
 /* ---------- local state ---------- */
 const newCaseKey = ref('')
+const msg = useMessage()
+
+/* ---------- Computed options for dropdown ---------- */
+const selectOptions = computed(() =>
+    props.headerFields.map(field => ({
+      label: field,
+      value: field
+    }))
+)
 
 /* ---------- case helpers ---------- */
 function addCase () {
-  const key = newCaseKey.value.trim()
-  if (!key || props.item.cases[key]) return
+  let key = newCaseKey.value.trim()
+  if (!key) return;
+
+  // Auto-prefix with '0x' if it's not already there
+  if (!key.toLowerCase().startsWith('0x')) {
+    key = '0x' + key;
+  }
+
+  if (props.item.cases[key]) {
+    msg.warning(`Case key "${key}" already exists.`);
+    return;
+  }
+
   props.item.cases[key] = { description: '', groups: [] }
   newCaseKey.value = ''
 }

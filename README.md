@@ -1,101 +1,310 @@
 # EZ Frame Decoder
 
-A desktop application for decoding 23-byte ASCII frames with a user-friendly interface. Built with Tauri for cross-platform compatibility and Vue 3 for a modern frontend experience.
+A high-performance desktop utility designed to effortlessly parse and interpret fixed-length data frames. Built with Rust and Tauri for a native cross-platform experience, and Vue 3 for a modern, reactive user interface.
 
-## Features
+This tool transforms raw data logs into human-readable information in an instant, making it ideal for engineers and developers debugging hardware protocols.
 
-- **Frame Decoding**: Decode 23-byte ASCII frames in the format `<command_data>` with 1-3 `>` terminators
-- **Batch Processing**: Upload and decode multiple frames from `.txt`, `.log`, or `.csv` files
-- **Interactive UI**: Click frames in the sidebar to decode them instantly
-- **Field Descriptions**: Hover over decoded fields to see detailed descriptions
-- **Hot-Reloadable Specs**: Modify the JSON specification file without restarting the app
-- **Cross-Platform**: Native desktop app for Windows, macOS, and Linux
+![Screenshot of EZ Frame Decoder](https://github.com/user-attachments/assets/5eb1b355-cdb0-415e-8a77-8c0d697cb6a5)
 
-## Getting Started
+---
 
-### Prerequisites
+## ✨ Key Features
 
-- [Node.js](https://nodejs.org/) (v16 or later)
-- [pnpm](https://pnpm.io/) package manager
-- [Rust](https://rustup.rs/) toolchain
-- [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites)
+* **Dynamic Decoding**: Paste raw frames for instant, real-time decoding based on the active specification.
+* **Batch Processing**: Load and parse frames from `.txt`, `.log`, or `.csv` files.
+* **Customizable Specs**: Define your own command structures using the powerful, JSON-based `.ezspec` format.
+* **Advanced Spec Editor**: A dedicated, feature-rich UI for creating and managing command families and their protocols (enabled via "Advanced Mode").
+* **Flexible Spec Management**: Easily load custom spec files from anywhere, export your current spec, or reset to the default configuration.
+* **Complex Protocol Support**: Supports conditional logic in your command definitions using `switch` blocks to handle variable packet structures based on header fields.
+* **Durable Editing**: All changes made in the Spec Editor are automatically saved back to the loaded spec file, ensuring your work is never lost.
+* **Modern Interface**: A clean, themeable UI with both light and dark modes for your comfort.
 
-### Installation
+---
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd EZFrameDecoder
-```
+## 🚀 How It Works
 
-2. Install dependencies:
-```bash
-pnpm install
-```
+The application's logic is driven by a specification file (`.ezspec`) that you control. This file defines how to interpret incoming data frames.
 
-3. Run in development mode:
-```bash
-pnpm tauri dev
-```
+### The Spec File
 
-4. Build for production:
-```bash
-pnpm tauri build
-```
+* On its first launch, the application creates a default specification file named `spec_override.ezspec` in your system's configuration directory.
+* **Healing Mechanism**: If this user-specific file ever becomes corrupted or is deleted, the application will automatically restore it from the bundled default, ensuring the app always starts in a valid state.
+* You can find the default override file at these locations:
+    * **Windows**: `%APPDATA%\EZFrameDecoder\spec_override.ezspec`
+    * **macOS**: `~/Library/Application Support/EZFrameDecoder/spec_override.ezspec`
+    * **Linux**: `~/.config/EZFrameDecoder/spec_override.ezspec`
 
-## Usage
+### Application Modes
 
-### Single Frame Decoding
+The application has two modes, which can be toggled in the **Settings** page:
 
-1. Paste a 23-byte frame into the input field (e.g., `<A20481 0           >>>`)
-2. Click the **Decode** button or press **Enter**
-3. View the decoded fields in the main panel
+1.  **Standard Mode**: The default mode, focused on decoding. It provides a read-only view of the currently loaded commands, perfect for safe, everyday use.
+2.  **Advanced Mode**: Unlocks the full **Spec Editor**, giving you complete CRUD (Create, Read, Update, Delete) control over command families and their definitions.
 
-### Batch File Processing
+---
 
-1. Drag and drop a `.txt`, `.log`, or `.csv` file onto the sidebar
-2. Click any frame in the list to decode it
-3. Navigate through multiple frames using the sidebar
+## 📖 Usage
 
-### Supported Frame Format
+### Decoding Frames
 
-Frames must be exactly 23 characters in the format:
-- Start with `<`
-- Command letter (A, B, C, etc.)
-- Data payload
-- End with 1-3 `>` characters for padding
+1.  Navigate to the **Decoder** page.
+2.  **Single Frame**: Paste a raw data frame into the input box and click "Decode".
+3.  **Multiple Frames**: Drag and drop a `.txt`, `.log`, or `.csv` file containing frames onto the drop zone on the left. Click any frame in the list to see its decoded output.
 
-Example: `<A20481 0           >>>`
+### Managing Specs and Settings
 
-## Configuration
+1.  Navigate to the **Settings** page.
+2.  Here you can toggle **Advanced Mode** or **Dark Mode**.
+3.  If Advanced Mode is enabled, you can:
+    * **Choose Spec File**: Load a custom `.ezspec` file from your computer.
+    * **Export Spec**: Save the currently active specification to a new file.
+    * **Reset to Default**: Revert the application to using the default `spec_override.ezspec` file.
 
-The application uses a JSON specification file to define how frames are decoded. The spec file is automatically copied to your user config directory on first run:
+### Editing Specifications (Advanced Mode)
 
-- **Windows**: `%APPDATA%/EZFrameDecoder/spec_override.json`
-- **macOS**: `~/Library/Application Support/EZFrameDecoder/spec_override.json`
-- **Linux**: `~/.config/EZFrameDecoder/spec_override.json`
+1.  Enable **Advanced Mode** in Settings.
+2.  Navigate to the **Spec Editor** page.
+3.  **Families**:
+    * The left sidebar lists all "Command Families" from your spec. A family is a group of commands that share properties like a start character and frame length.
+    * Click **New Family** to create a new one.
+    * Select a family to view its commands. You can then **Edit** or **Delete** the selected family.
+4.  **Commands**:
+    * With a family selected, you can view its list of commands. Click **Add New Command** to define a new command.
+    * You can **Edit** or **Delete** existing commands directly from the list.
+    * The command builder allows you to define fields, groups, and complex `switch` logic for dynamic packet parsing.
 
-### Specification Format
+---
 
-The spec file defines commands, fields, and their decoding rules:
+## 🧬 The `.ezspec` Format
+
+The `.ezspec` file is a JSON object that defines how frames are decoded. The structure is hierarchical:
+
+* **`families[]`**: An array of `Family` objects.
+    * **`Family`**: Defines a top-level protocol. It has a `name`, `start` character, `terminator` character, and a fixed `frame_len`. It contains an array of `commands`.
+        * **`Command`**: Defined by a unique `letter` within its family. It contains an array of `items` that describe the data structure.
+            * **`Item`**: Can be a `Group` or a `Switch`.
+                * **`Group`**: A named collection of `Fields`. The first group is typically named `header`.
+                * **`Switch`**: Allows for conditional decoding. It keys off a field defined in a preceding group (usually the header) and decodes the rest of the payload based on that field's value.
+                * **`Field`**: The smallest unit. It has a `name`, `len` (length in hex characters), `base` (10 or 16), and `type` (`u8`, `u16`, `bool`, etc.).
+
+### Example Snippet
 
 ```json
 {
-  "framing": { "start": "<" },
-  "commands": [
+  "families": [
     {
-      "letter": "A",
-      "description": "Test command",
-      "items": [
+      "name": "Demo",
+      "description": "A demo family of commands.",
+      "start": "!",
+      "terminator": ">",
+      "frame_len": 23,
+      "commands": [
         {
-          "name": "Header",
-          "fields": [
+          "letter": "A",
+          "description": "A demonstration command, showcasing different aspects!",
+          "items": [
             {
-              "name": "Opcode",
-              "len": 4,
-              "base": 10,
-              "type": "u16",
-              "description": "Operation selector"
+              "name": "Header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on bus"
+                }
+              ]
+            },
+            {
+              "name": "Payload",
+              "fields": [
+                {
+                  "name": "NumericHexData",
+                  "len": 5,
+                  "base": 16,
+                  "type": "u32",
+                  "description": "A numeric hex field with 5 character width."
+                },
+                {
+                  "name": "NumericDecimalData",
+                  "len": 4,
+                  "base": 10,
+                  "type": "u16",
+                  "description": "A numeric decimal field with 4 character width."
+                },
+                {
+                  "name": "SingleWideBoolean",
+                  "len": 1,
+                  "base": 16,
+                  "type": "bool",
+                  "description": "A single character wide Boolean flag."
+                },
+                {
+                  "name": "DoubleWideBoolean",
+                  "len": 2,
+                  "base": 16,
+                  "type": "bool",
+                  "description": "A two character wide Boolean flag."
+                },
+                {
+                  "name": "Padding",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "A 4 character padding."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "description": "A demonstration of a command that switches based on an OPCode",
+          "items": [
+            {
+              "name": "Header",
+              "fields": [
+                {
+                  "name": "RSAddress",
+                  "len": 2,
+                  "base": 16,
+                  "type": "u8",
+                  "description": "Device address on bus"
+                },
+                {
+                  "name": "OPCode",
+                  "len": 4,
+                  "base": 16,
+                  "type": "u16",
+                  "description": "The OPCode which we will use to switch our commands."
+                }
+              ]
+            },
+            {
+              "switch": "OPCode",
+              "cases": {
+                "0x0000": {
+                  "description": "OPCode 0000",
+                  "groups": [
+                    {
+                      "name": "Group",
+                      "fields": [
+                        {
+                          "name": "field-1",
+                          "len": 6,
+                          "base": 16,
+                          "type": "u24",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-2",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-3",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-4",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "0x1234": {
+                  "description": "Case 1234",
+                  "groups": [
+                    {
+                      "name": "payload",
+                      "fields": [
+                        {
+                          "name": "field-1",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-2",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-3",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-4",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-5",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        },
+                        {
+                          "name": "field-6",
+                          "len": 2,
+                          "base": 16,
+                          "type": "u8",
+                          "description": ""
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "default": {
+                "description": "Default Case",
+                "groups": [
+                  {
+                    "name": "payload",
+                    "fields": [
+                      {
+                        "name": "field-1",
+                        "len": 10,
+                        "base": 16,
+                        "type": "u32",
+                        "description": "Padding"
+                      },
+                      {
+                        "name": "field-2",
+                        "len": 2,
+                        "base": 16,
+                        "type": "u8",
+                        "description": ""
+                      },
+                      {
+                        "name": "field-3",
+                        "len": 2,
+                        "base": 16,
+                        "type": "u8",
+                        "description": ""
+                      }
+                    ]
+                  }
+                ]
+              }
             }
           ]
         }
@@ -105,82 +314,75 @@ The spec file defines commands, fields, and their decoding rules:
 }
 ```
 
-## Keyboard Shortcuts
+---
 
-- **Enter** (in input field) — Decode current frame
+## 🛠️ Getting Started (from Source)
 
-## Architecture
+### Prerequisites
 
-### Frontend (Vue 3 + TypeScript)
-- [`src/components/DecoderInput.vue`](src/components/DecoderInput.vue) - Frame input component
-- [`src/components/CommandList.vue`](src/components/FrameList.vue) - File upload and frame list
-- [`src/composables/useSharedDecode`](src/composables/) - Shared decoding logic
-- [`src/stores/frameStore`](src/stores/) - Frame state management
+* [Node.js](https://nodejs.org/) (v16 or later)
+* [pnpm](https://pnpm.io/) package manager
+* [Rust](https://rustup.rs/) toolchain
+* [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites)
 
-### Backend (Rust + Tauri)
-- [`src-tauri/src/decoder.rs`](src-tauri/src/decoder.rs) - Core frame decoding logic
-- [`src-tauri/src/main.rs`](src-tauri/src/main.rs) - Tauri commands and app setup
+### Installation
 
-### Key Tauri Commands
-- [`decode_frame`](src-tauri/src/main.rs) - Decode a single frame
-- [`batch_decode`](src-tauri/src/main.rs) - Decode multiple frames from text
-- [`reload_spec`](src-tauri/src/main.rs) - Reload specification from disk
+1.  Clone the repository:
+    ```bash
+    git clone <repository-url>
+    cd EZFrameDecoder
+    ```
 
-## Development
+2.  Install dependencies:
+    ```bash
+    pnpm install
+    ```
 
-### Project Structure
+3.  Run in development mode:
+    ```bash
+    pnpm tauri dev
+    ```
 
-```
-├── src/                    # Vue frontend
-│   ├── components/         # Vue components
-│   ├── composables/        # Vue composables
-│   ├── pages/             # Application pages
-│   ├── stores/            # State management
-│   └── main.ts            # Frontend entry point
-├── src-tauri/             # Rust backend
-│   ├── src/
-│   │   ├── decoder.rs     # Frame decoding logic
-│   │   └── main.rs        # Tauri app setup
-│   └── resources/         # Bundled resources
-└── dist/                  # Built application
-```
+4.  Build for production:
+    ```bash
+    pnpm tauri build
+    ```
 
-### Testing
+---
 
-Run Rust unit tests:
-```bash
-cd src-tauri
-cargo test
-```
+## 🤝 Contributing
 
-### Building
+Contributions are welcome! Whether you're fixing a bug, adding a new feature, or improving documentation, your help is appreciated.
 
-The application can be built for multiple platforms:
-```bash
-pnpm tauri build --target x86_64-pc-windows-msvc    # Windows
-pnpm tauri build --target x86_64-apple-darwin       # macOS Intel
-pnpm tauri build --target aarch64-apple-darwin      # macOS Apple Silicon
-pnpm tauri build --target x86_64-unknown-linux-gnu  # Linux
-```
+### How to Contribute
 
-## License
+1.  **Fork the repository**: Create your own copy of the project on GitHub.
+2.  **Create a new branch**: `git checkout -b feature/your-awesome-feature`
+3.  **Make your changes**: Write your code and commit your changes with clear messages.
+4.  **Push to your branch**: `git push origin feature/your-awesome-feature`
+5.  **Open a Pull Request**: Submit a pull request from your forked repository to the main project.
 
-This project is licensed under the **Apache License 2.0**. You are free to:
+### Reporting Bugs
 
-* **Use** the software for commercial or non-commercial purposes.
-* **Modify** the code to suit your needs.
-* **Distribute** original or modified versions, provided you retain the license and attribution.
+If you find a bug, please open an issue on the GitHub repository. Include as much detail as possible:
+* Steps to reproduce the bug.
+* What you expected to happen.
+* What actually happened.
+* Screenshots or logs, if applicable.
 
-#### Why Apache 2.0?
+---
 
-The Apache 2.0 license was chosen to encourage adoption — including by commercial and industrial users — while providing legal clarity around:
+## 📜 License
 
-* **Patent use**: Users are granted a license to any relevant patents held by contributors.
-* **Attribution**: Credit must be given to the original author(s).
-* **Modification notice**: If you distribute a modified version, you must document the changes.
+This project is licensed under the **Apache 2.0 License**.
+
+### Why Apache 2.0?
+
+The Apache 2.0 license was chosen to encourage adoption—including by commercial and industrial users—while providing legal clarity and maintaining open-source principles.
+
+* **Permissive**: You are free to use, modify, and distribute the software for any purpose, commercial or non-commercial, without worrying about royalties.
+* **Patent Grant**: It provides an express grant of patent rights from contributors to users, protecting you from patent litigation.
+* **Attribution**: You must retain the original copyright and license notices in your distributed versions.
+* **Modification Notice**: If you modify the code, you must include a notice of your changes.
 
 For full license details, see the [LICENSE](./LICENSE) file.
-
-## Contributing
-
-TBD.

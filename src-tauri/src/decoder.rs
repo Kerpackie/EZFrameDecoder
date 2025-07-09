@@ -1,7 +1,7 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{collections::BTreeMap, fs, path::PathBuf, sync::RwLock};
-use once_cell::sync::Lazy;
 use tauri::command;
 
 /* ──────────── Spec structures ──────────── */
@@ -104,7 +104,9 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
 
     // Defensive check against a malformed spec that might have been edited manually
     if family.terminator.is_empty() {
-        return Err(DecodeError::InvalidSpec("Family terminator is empty in spec.".into()));
+        return Err(DecodeError::InvalidSpec(
+            "Family terminator is empty in spec.".into(),
+        ));
     }
 
     // CORRECTED LOGIC: The total frame length is now always fixed.
@@ -145,13 +147,17 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
                 out[g.name.clone()] = decode_group(g, &mut cursor, &mut ctx)?;
             }
             Item::Switch(sw) => {
-                let disc = ctx.get(&sw.switch)
+                let disc = ctx
+                    .get(&sw.switch)
                     .ok_or_else(|| DecodeError::MissingField(sw.switch.clone()))?
                     .as_u64()
                     .ok_or_else(|| DecodeError::BadType(sw.switch.clone()))?;
 
                 let key = format!("0x{:04X}", disc);
-                let var = sw.cases.get(&key).or(sw.default.as_ref())
+                let var = sw
+                    .cases
+                    .get(&key)
+                    .or(sw.default.as_ref())
                     .ok_or_else(|| DecodeError::UnknownCase(key.clone(), sw.switch.clone()))?;
 
                 if let Some(d) = &var.description {
@@ -167,7 +173,11 @@ pub fn decode(frame: &str, spec: &SpecFile) -> Result<Value, DecodeError> {
     Ok(out)
 }
 
-fn decode_group(g: &Group, cursor: &mut &str, ctx: &mut Map<String, Value>) -> Result<Value, DecodeError> {
+fn decode_group(
+    g: &Group,
+    cursor: &mut &str,
+    ctx: &mut Map<String, Value>,
+) -> Result<Value, DecodeError> {
     let mut map = Map::new();
     for f in &g.fields {
         if cursor.len() < f.len as usize {
@@ -185,7 +195,7 @@ fn decode_group(g: &Group, cursor: &mut &str, ctx: &mut Map<String, Value>) -> R
 
         let entry = match &f.description {
             Some(desc) => json!({ "hex": seg, "value": raw_val, "description": desc }),
-            None       => json!({ "hex": seg, "value": raw_val }),
+            None => json!({ "hex": seg, "value": raw_val }),
         };
         map.insert(f.name.clone(), entry);
     }
